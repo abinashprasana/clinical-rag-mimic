@@ -1,0 +1,20 @@
+# Dataset and large files
+*.csv
+*.csv.gz
+
+# Outputs, chunks, index, evaluation results
+outputs/
+*.pkl
+*.index
+*.json
+
+# Jupyter and Python caches
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.ipynb
+
+# Temporary files
+extract.py
+notebook_source.py

@@ -1,0 +1,10 @@
+sentence-transformers
+faiss-cpu
+nltk
+pandas
+numpy
+matplotlib
+seaborn
+wordcloud
+transformers==4.44.2
+Flask
