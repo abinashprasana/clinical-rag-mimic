@@ -23,7 +23,9 @@ The pipeline was built to work entirely on CPU with no paid APIs and no data lea
 
 <!-- Record your screen showing a question being asked and answered in Tab 1, then upload here -->
 
-https://github.com/user-attachments/assets/YOUR-VIDEO-ID-HERE
+
+https://github.com/user-attachments/assets/497c9699-0c8b-4837-933f-6f3afdeb044b
+
 
 ## 🧪 Evaluation Results
 
