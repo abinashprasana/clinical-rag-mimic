@@ -48,7 +48,7 @@ _INTENT_SECTIONS = (
     (("medication", "medicine", "prescrib", "drug"),
      ("Discharge Medications", "Medications on Admission")),
     (("follow", "appointment", "recheck"), ("Followup Instructions",)),
-    (("disposition", "facility", "sent", "home"), ("Discharge Disposition",)),
+    (("disposition", "discharged to", "facility"), ("Discharge Disposition",)),
     (("condition", "stable", "status"), ("Discharge Condition",)),
     (("allerg",), ("Allergies",)),
     (("lab", "result", "wbc", "creatinine", "sodium", "hemoglobin", "glucose"),

@@ -22,3 +22,15 @@ def test_public_runtime_refuses_dosing_advice_without_network_lookup():
     assert result['route'] == 'direct'
     assert result['citations'] == []
     assert 'does not provide prescribing or dosing advice' in result['final_answer']
+
+
+def test_medication_question_does_not_collide_with_disposition():
+    # Regression test: "home" used to be a standalone trigger word for the
+    # Discharge Disposition section, so a medications question containing
+    # "at home" incorrectly matched disposition instead. See README's
+    # Public deployment (Vercel) section for the full writeup.
+    result = run_turn('What was the patient prescribed to take at home?')
+
+    assert result['citations']
+    top_section = result['citations'][0]['chunk_text'].split(':', 1)[0]
+    assert top_section in ('Discharge Medications', 'Medications on Admission')
