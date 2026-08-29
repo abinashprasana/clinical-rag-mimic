@@ -75,6 +75,14 @@ PUBLIC_GENERATOR_LABEL = f"{PUBLIC_GENERATION_MODEL.removeprefix('models/')} (re
 # header-boost weight, or DEMO_NOTES.
 PUBLIC_ACCURACY_PCT = 100
 
+# Displayed as a raw count, not a percentage, deliberately: a bare "100%"
+# sitting next to the real dataset's 70% and the local synthetic demo's 80%
+# reads as "the deployed demo beats the real pipeline," which is false and
+# not something either number was ever meant to support -- all three are the
+# same tiny 10-question smoke test, not a benchmark, and 10/10 on a 10-item
+# check is a much more modest, harder-to-misread claim than "100%."
+PUBLIC_ACCURACY_LABEL = "10/10 canonical checks"
+
 _STOPWORDS = {
     "a", "about", "after", "all", "an", "and", "are", "as", "at", "be",
     "by", "did", "do", "does", "for", "from", "how", "i", "in", "is",

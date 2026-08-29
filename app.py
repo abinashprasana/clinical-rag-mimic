@@ -58,6 +58,7 @@ def _load_local_dependencies():
 def _initialize_runtime(runtime):
     if runtime == PUBLIC_RUNTIME:
         from demo_runtime import (
+            PUBLIC_ACCURACY_LABEL,
             PUBLIC_ACCURACY_PCT,
             PUBLIC_DATASET_LABEL,
             PUBLIC_GENERATOR_LABEL,
@@ -69,6 +70,7 @@ def _initialize_runtime(runtime):
             'generator_label': PUBLIC_GENERATOR_LABEL,
             'output_dir': None,
             'accuracy_pct': PUBLIC_ACCURACY_PCT,
+            'accuracy_label': PUBLIC_ACCURACY_LABEL,
             'public_demo': True,
         }
 
@@ -90,6 +92,7 @@ def _initialize_runtime(runtime):
         'generator_label': config.LOCAL_GENERATOR_MODEL,
         'output_dir': config.OUTPUT_DIR,
         'accuracy_pct': None,
+        'accuracy_label': None,
         'public_demo': False,
     }
 
@@ -156,6 +159,7 @@ def create_app(runtime=LOCAL_RUNTIME):
         return render_template(
             'index.html',
             accuracy_pct=accuracy_pct,
+            accuracy_label=runtime_state['accuracy_label'],
             dataset_version=runtime_state['dataset_label'],
             retrieval_top_k=config.DEFAULT_TOP_K,
             generator_model=runtime_state['generator_label'],

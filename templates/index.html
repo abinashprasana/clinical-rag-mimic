@@ -165,7 +165,7 @@
                                         <div>
                                             <dt>Measured accuracy</dt>
                                             {% if public_demo %}
-                                            <dd title="Measured only on this app's own fixed 10-question set with scripts/evaluate_public_demo.py. Falls back to a simpler offline method if Gemini is unavailable; see the evaluation notes below.">{{ accuracy_pct }}% on fixed set</dd>
+                                            <dd title="Measured only on this app's own fixed 10-question smoke test with scripts/evaluate_public_demo.py, not a benchmark comparable to the real/synthetic dataset figures below. Falls back to a simpler offline method if Gemini is unavailable.">{{ accuracy_label }}</dd>
                                             {% elif accuracy_pct is not none %}
                                             <dd>{{ accuracy_pct }}%</dd>
                                             {% else %}
@@ -323,8 +323,13 @@
                             </div>
                             <div>
                                 <span>Measured accuracy</span>
+                                {% if public_demo %}
+                                <strong>{{ accuracy_label }}</strong>
+                                <small>Not a benchmark vs. the local pipeline</small>
+                                {% else %}
                                 <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}—{% endif %}</strong>
                                 <small>Fixed structural question set</small>
+                                {% endif %}
                             </div>
                         </section>
 

@@ -57,6 +57,7 @@ def test_get_index_passes_non_sensitive_metadata_and_security_headers(
         'template_name': 'index.html',
         'context': {
             'accuracy_pct': None,
+            'accuracy_label': None,
             'dataset_version': 'MIMIC-IV-Note v2.2',
             'retrieval_top_k': app_module.config.DEFAULT_TOP_K,
             'generator_model': app_module.config.LOCAL_GENERATOR_MODEL,

@@ -82,14 +82,12 @@ Concretely, `demo_runtime.py`:
 - Runs that generated answer through the same local faithfulness check (`agent/reflection.py`'s content-word/numeric overlap check) the local pipeline uses, with one retry if it fails, before ever showing it.
 - Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout) -- the app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
 
-`python -m scripts.evaluate_public_demo` measures this pipeline's own accuracy against the same 10-question keyword-hit set the other rows use:
+`python -m scripts.evaluate_public_demo` runs the same 10-question keyword-hit check against this pipeline. Its result is reported as a raw count, not a percentage, and deliberately not placed in the accuracy table above: a bare "100%" sitting next to the real dataset's 70% and the local synthetic demo's 80% would misleadingly read as "the deployed demo beats the real research pipeline," when all three numbers are actually the same small 10-question smoke test, not a benchmark that scales to general reliability.
 
 | Metric | Public Vercel demo (Gemini-backed RAG) |
 |---|---|
-| Overall Accuracy | 100% (10/10) on this app's own fixed question set |
+| Canonical checks passed | 10/10 (not a benchmark; see note above) |
 | Mean Latency | ~1.5s per question |
-
-As with the other rows, this is measured only against this project's own 10 canonical questions, not a broad benchmark -- treat it as a real, reproducible number for this specific test rather than a general claim about open-ended reliability.
 
 ## 🧠 How It Works
 
