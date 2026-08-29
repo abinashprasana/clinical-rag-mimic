@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="224" viewBox="0 0 600 224" fill="none">
+  <rect width="600" height="224" fill="#071119"/>
+  <text x="24" y="28" fill="#F4F7F8" font-family="IBM Plex Sans,Arial,sans-serif" font-size="14" font-weight="600">Evidence Aperture — approved scale proof</text>
+  <g transform="translate(28 108) scale(.5)">
+    <path d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" stroke="#B7C8CE" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <rect x="10" y="11" width="12" height="10" rx="2" stroke="#F4F7F8" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M13 16H19" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(78 106) scale(.625)">
+    <path d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" stroke="#B7C8CE" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <rect x="10" y="11" width="12" height="10" rx="2" stroke="#F4F7F8" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M13 16H19" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(132 104) scale(.75)">
+    <path d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" stroke="#B7C8CE" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <rect x="10" y="11" width="12" height="10" rx="2" stroke="#F4F7F8" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M13 16H19" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(190 100)">
+    <path d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" stroke="#B7C8CE" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <rect x="10" y="11" width="12" height="10" rx="2" stroke="#F4F7F8" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M13 16H19" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(270 84) scale(2)">
+    <path d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" stroke="#B7C8CE" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <rect x="10" y="11" width="12" height="10" rx="2" stroke="#F4F7F8" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M13 16H19" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(430 52) scale(4)">
+    <path d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" stroke="#B7C8CE" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <rect x="10" y="11" width="12" height="10" rx="2" stroke="#F4F7F8" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M13 16H19" stroke="#62C7D0" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+  </g>
+  <g fill="#B7C8CE" font-family="IBM Plex Mono,Consolas,monospace" font-size="11" text-anchor="middle">
+    <text x="36" y="204">16 px</text>
+    <text x="88" y="204">20 px</text>
+    <text x="144" y="204">24 px</text>
+    <text x="206" y="204">32 px</text>
+    <text x="302" y="204">64 px</text>
+    <text x="494" y="204">128 px</text>
+  </g>
+</svg>

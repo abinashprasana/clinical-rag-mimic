@@ -1,0 +1,12 @@
+{
+  "name": "clinical-rag-ui-checks",
+  "private": true,
+  "scripts": {
+    "test:ui": "playwright test",
+    "test:ui:update": "playwright test --update-snapshots"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1"
+  }
+}

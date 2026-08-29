@@ -1,20 +1,36 @@
 # Dataset and large files
 *.csv
 *.csv.gz
+mimic-iv-note-deidentified-free-text-clinical-notes-2.2/
 
-# Outputs, chunks, index, evaluation results
+# Outputs, chunks, index, evaluation results (real MIMIC-IV-derived data --
+# never commit this)
 outputs/
 *.pkl
 *.index
 *.json
+!package.json
+!package-lock.json
+
+# outputs_demo/ is the synthetic-data demo index (scripts/build_demo_index.py)
+# -- fabricated notes, safe to commit, exempted from the blanket rules above
+!outputs_demo/
+!outputs_demo/*.pkl
+!outputs_demo/*.index
 
 # Jupyter and Python caches
 .venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+node_modules/
+playwright-report/
+test-results/
 *.ipynb
 
 # Temporary files
 extract.py
 notebook_source.py
+
+# Secrets
+.env

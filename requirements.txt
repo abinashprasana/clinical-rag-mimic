@@ -7,4 +7,10 @@ matplotlib
 seaborn
 wordcloud
 transformers==4.44.2
+torch
 Flask
+python-dotenv
+waitress
+pytest
+langgraph
+google-genai

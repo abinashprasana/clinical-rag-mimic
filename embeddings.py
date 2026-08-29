@@ -3,7 +3,23 @@ import os
 import faiss
 import numpy as np
 import pickle
+import pandas as pd
 from sentence_transformers import SentenceTransformer
+import config
+
+def _safe_int(value):
+    return int(value) if pd.notna(value) else None
+
+def build_provenance(chunk_sources, df_notes):
+    """Map each chunk's originating dataframe row index to its subject_id/hadm_id,
+    so retrieved chunks can be cited back to a real patient admission."""
+    return [
+        {
+            'subject_id': _safe_int(df_notes.loc[src, 'subject_id']),
+            'hadm_id': _safe_int(df_notes.loc[src, 'hadm_id']),
+        }
+        for src in chunk_sources
+    ]
 
 def main():
     with open('outputs/chunks_temp.pkl', 'rb') as f:
@@ -11,11 +27,14 @@ def main():
     all_chunks = data['chunks']
     chunk_sources = data['sources']
 
-    print('Loading all-MiniLM-L6-v2...')
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    df_notes = pd.read_pickle('outputs/df_notes_pp.pkl')
+    provenance = build_provenance(chunk_sources, df_notes)
+
+    print(f'Loading {config.EMBEDDING_MODEL}...')
+    model = SentenceTransformer(config.EMBEDDING_MODEL)
     print('Model loaded.')
 
-    batch_size = 64
+    batch_size = config.EMBEDDING_BATCH_SIZE
     all_embeddings = []
     start_time = time.time()
 
@@ -43,7 +62,9 @@ def main():
     faiss.write_index(index, 'outputs/faiss_index.index')
 
     with open('outputs/chunks_data.pkl', 'wb') as f:
-        pickle.dump({'chunks': all_chunks, 'sources': chunk_sources}, f)
+        pickle.dump(
+            {'chunks': all_chunks, 'sources': chunk_sources, 'provenance': provenance}, f
+        )
 
     print('Outputs saved: outputs/faiss_index.index and outputs/chunks_data.pkl')
 

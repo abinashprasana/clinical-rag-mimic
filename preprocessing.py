@@ -24,6 +24,19 @@ _stop_words.update({
     'mch', 'mchc', 'mcv', 'rdw', 'na', 'cl', 'hco', 'bun', 'cr'
 })
 
+# NLTK's default English stopword list includes negation terms (no, not, nor,
+# ...). Clinical NLP literature on MIMIC-IV specifically flags this: negation
+# and uncertainty carry the actual clinical meaning in a note ("no chest
+# pain" vs "chest pain" are opposite findings), and roughly 13% of clinical
+# concepts in notes appear in a negated context, so blanket stopword removal
+# silently flips or erases meaning. Keep these out of the stopword set.
+_NEGATION_TERMS = {
+    'no', 'not', 'nor', 'never', 'none', 'neither', 'without', 'cannot',
+    "don't", "didn't", "doesn't", "isn't", "wasn't", "weren't", "won't",
+    "wouldn't", "shouldn't", "couldn't", "can't", "aren't", 'denies', 'denied'
+}
+_stop_words -= _NEGATION_TERMS
+
 def clean_for_viz(text):
     text = re.sub(r'\[\*\*.*?\*\*\]', ' ', text)
     text = re.sub(r'[^a-zA-Z\s]', ' ', text)
@@ -31,7 +44,8 @@ def clean_for_viz(text):
     text = re.sub(r'\s+', ' ', text).strip()
     tokens = word_tokenize(text)
     tokens = [_lemmatizer.lemmatize(t) for t in tokens
-              if t.isalpha() and len(t) > 2 and t not in _stop_words]
+              if t.isalpha() and t not in _stop_words
+              and (len(t) > 2 or t in _NEGATION_TERMS)]
     return ' '.join(tokens)
 
 from nltk.corpus import wordnet
@@ -62,8 +76,10 @@ def preprocess_note(text):
     text = re.sub(r'[^a-z0-9\s.,;:?!]', ' ', text)
     # Step 6: Tokenise
     tokens = word_tokenize(text)
-    # Step 7: Remove stop words and short tokens
-    tokens = [t for t in tokens if t.isalpha() and t not in _stop_words and len(t) > 2]
+    # Step 7: Remove stop words and short tokens (but keep short negation
+    # terms like "no" -- see _NEGATION_TERMS above)
+    tokens = [t for t in tokens if t.isalpha() and t not in _stop_words
+              and (len(t) > 2 or t in _NEGATION_TERMS)]
     # Step 8: Lemmatise with POS tagging
     pos_tags = nltk.pos_tag(tokens)
     tokens = [_lemmatizer.lemmatize(word, get_wordnet_pos(tag)) for word, tag in pos_tags]
