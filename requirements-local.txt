@@ -1,0 +1,18 @@
+-r requirements.txt
+
+# Full local RAG pipeline. These packages are intentionally not installed in
+# the public Vercel function; use this file for credentialed/local work.
+sentence-transformers
+faiss-cpu
+nltk
+pandas
+numpy
+matplotlib
+seaborn
+wordcloud
+transformers==4.44.2
+torch
+waitress
+pytest
+langgraph
+google-genai

@@ -3,6 +3,8 @@
 
     const LONG_REQUEST_SECONDS = 20;
     const MOBILE_EVIDENCE_QUERY = "(max-width: 900px)";
+    const isPublicDemo = document.body.dataset.publicDemo === "true";
+    const processingLabel = isPublicDemo ? "Searching fabricated records" : "Processing locally";
 
     const elements = {
         assistantPanel: document.getElementById("assistant-panel"),
@@ -376,13 +378,13 @@
         if (busy) {
             state.requestStartedAt = Date.now();
             state.longRequestAnnounced = false;
-            elements.requestStatusLabel.textContent = "Processing locally";
+            elements.requestStatusLabel.textContent = processingLabel;
             elements.elapsedTime.textContent = "00:00";
             state.timerId = window.setInterval(updateElapsedTime, 1000);
         } else {
             if (state.timerId !== null) window.clearInterval(state.timerId);
             state.timerId = null;
-            elements.requestStatusLabel.textContent = "Processing locally";
+            elements.requestStatusLabel.textContent = processingLabel;
         }
     }
 
@@ -391,8 +393,12 @@
         elements.elapsedTime.textContent = formatElapsed(seconds);
         if (seconds >= LONG_REQUEST_SECONDS && !state.longRequestAnnounced) {
             state.longRequestAnnounced = true;
-            elements.requestStatusLabel.textContent = "Still processing locally";
-            announce("Still processing locally. CPU generation can take longer.");
+            elements.requestStatusLabel.textContent = isPublicDemo
+                ? "Still searching fabricated records"
+                : "Still processing locally";
+            announce(isPublicDemo
+                ? "Still searching fabricated records."
+                : "Still processing locally. CPU generation can take longer.");
         }
     }
 

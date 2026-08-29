@@ -4,7 +4,6 @@ import uuid
 import pytest
 
 import app as app_module
-import agent.graph as graph_module
 
 
 @pytest.fixture
@@ -14,6 +13,7 @@ def flask_app(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, 'load_index', lambda _path: (object(), [], []))
     monkeypatch.setattr(app_module, 'load_generator', lambda: object())
     monkeypatch.setattr(app_module, 'get_graph', lambda *_args: object())
+    monkeypatch.setattr(app_module, 'run_turn', lambda *_args, **_kwargs: _result())
 
     application = app_module.create_app()
     application.config.update(
@@ -60,6 +60,7 @@ def test_get_index_passes_non_sensitive_metadata_and_security_headers(
             'dataset_version': 'MIMIC-IV-Note v2.2',
             'retrieval_top_k': app_module.config.DEFAULT_TOP_K,
             'generator_model': app_module.config.LOCAL_GENERATOR_MODEL,
+            'public_demo': False,
         },
     }
     assert response.headers['Content-Security-Policy'] == (
@@ -294,6 +295,7 @@ def test_unexpected_failure_uses_internal_error_fallback(
 
 
 def test_generate_node_reports_retrieved_evidence_passages(monkeypatch):
+    graph_module = pytest.importorskip('agent.graph')
     monkeypatch.setattr(
         graph_module,
         'generate_answer',
@@ -312,3 +314,33 @@ def test_generate_node_reports_retrieved_evidence_passages(monkeypatch):
     result = graph_module.make_generate_node(object())(state)
 
     assert result['tool_used'] == 'Retrieved 2 evidence passages'
+
+
+def test_module_level_vercel_app_is_fabricated_and_healthy():
+    application = app_module.app
+    assert application.config['PUBLIC_DEMO'] is True
+
+    response = application.test_client().get('/healthz')
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        'status': 'ok',
+        'runtime': 'synthetic-demo',
+        'data_boundary': 'fabricated-only',
+        'external_ai': False,
+    }
+
+
+def test_public_demo_question_returns_only_synthetic_evidence():
+    response = app_module.app.test_client().post(
+        '/ask',
+        json={'question': 'What discharge diagnoses are documented?'},
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['route'] == 'retrieve'
+    assert payload['reflection']['supported'] is True
+    assert payload['citations']
+    assert all(item['subject_id'] >= 9_000_000 for item in payload['citations'])
+    assert all(item['hadm_id'] >= 29_000_000 for item in payload['citations'])

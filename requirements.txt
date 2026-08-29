@@ -1,16 +1,4 @@
-sentence-transformers
-faiss-cpu
-nltk
-pandas
-numpy
-matplotlib
-seaborn
-wordcloud
-transformers==4.44.2
-torch
-Flask
-python-dotenv
-waitress
-pytest
-langgraph
-google-genai
+# Public Vercel runtime only. For the full local ML pipeline, install
+# requirements-local.txt instead.
+Flask==3.1.2
+python-dotenv==1.1.1

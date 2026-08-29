@@ -6,11 +6,14 @@ mimic-iv-note-deidentified-free-text-clinical-notes-2.2/
 # Outputs, chunks, index, evaluation results (real MIMIC-IV-derived data --
 # never commit this)
 outputs/
+static/eda_*.png
+static/eval_*.png
 *.pkl
 *.index
 *.json
 !package.json
 !package-lock.json
+!vercel.json
 
 # outputs_demo/ is the synthetic-data demo index (scripts/build_demo_index.py)
 # -- fabricated notes, safe to commit, exempted from the blanket rules above
@@ -20,10 +23,14 @@ outputs/
 
 # Jupyter and Python caches
 .venv/
+.vercel-venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 node_modules/
+.pnpm-store/
+.pytest_cache/
+.test-tmp/
 playwright-report/
 test-results/
 *.ipynb

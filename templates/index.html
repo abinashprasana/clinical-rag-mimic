@@ -13,6 +13,7 @@
 <body
     data-accuracy="{{ accuracy_pct if accuracy_pct is not none else '' }}"
     data-retrieval-top-k="{{ retrieval_top_k | default(5) }}"
+    data-public-demo="{{ 'true' if public_demo else 'false' }}"
 >
     <a class="skip-link" href="#main-content">Skip to main content</a>
 
@@ -78,9 +79,9 @@
             </nav>
 
             <div class="app-actions">
-                <div class="system-state" aria-label="Processing occurs locally">
+                <div class="system-state" aria-label="{{ 'Fabricated-data public demo' if public_demo else 'Processing occurs locally' }}">
                     <span class="state-indicator" aria-hidden="true"></span>
-                    <span>Local processing</span>
+                    <span>{% if public_demo %}Fabricated demo{% else %}Local processing{% endif %}</span>
                 </div>
                 <button class="button button-secondary" id="new-session-button" type="button">
                     <span class="button-icon" aria-hidden="true">+</span>
@@ -107,7 +108,11 @@
                                     <p class="eyebrow">Evidence-grounded clinical answers</p>
                                     <h2 id="welcome-title">Trace every answer back to its source</h2>
                                     <p class="welcome-lead">
+                                        {% if public_demo %}
+                                        Ask about fully fabricated discharge records. The public demo retrieves matching passages, returns an extractive answer, and exposes the evidence used without calling an external AI service.
+                                        {% else %}
                                         Ask about de-identified discharge records or FDA label information. The system retrieves supporting passages, generates locally, and exposes the evidence used.
+                                        {% endif %}
                                     </p>
                                     <div class="boundary-note">
                                         <span class="boundary-icon" aria-hidden="true">i</span>
@@ -151,7 +156,7 @@
                                         </div>
                                         <div>
                                             <dt>Generation</dt>
-                                            <dd>Local · {{ generator_model | default('FLAN-T5') | replace('google/', '') }}</dd>
+                                            <dd>{% if public_demo %}Server-side · {% else %}Local · {% endif %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}</dd>
                                         </div>
                                         <div>
                                             <dt>Retrieval</dt>
@@ -159,7 +164,7 @@
                                         </div>
                                         <div>
                                             <dt>Measured accuracy</dt>
-                                            <dd>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}Not recorded{% endif %}</dd>
+                                            <dd>{% if public_demo %}Not published{% elif accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}Not recorded{% endif %}</dd>
                                         </div>
                                     </dl>
                                 </div>
@@ -189,7 +194,7 @@
 
                         <div class="request-status" id="request-status" role="status" aria-live="polite" hidden>
                             <div class="request-status-copy">
-                                <span id="request-status-label">Processing locally</span>
+                                <span id="request-status-label">{% if public_demo %}Searching fabricated records{% else %}Processing locally{% endif %}</span>
                                 <span class="elapsed-time" id="elapsed-time" aria-hidden="true">00:00</span>
                             </div>
                             <div class="progress-track" aria-hidden="true"><span></span></div>
@@ -307,7 +312,7 @@
                             </div>
                             <div>
                                 <span>Generation</span>
-                                <strong>Local</strong>
+                                <strong>{% if public_demo %}Extractive{% else %}Local{% endif %}</strong>
                                 <small>{{ generator_model | default('FLAN-T5') | replace('google/', '') }}</small>
                             </div>
                             <div>
@@ -334,7 +339,7 @@
                                 </li>
                                 <li>
                                     <span class="flow-index">03</span>
-                                    <div><h3>Generate</h3><p>Compose an answer locally from the retrieved context within model input limits.</p></div>
+                                    <div><h3>Generate</h3><p>{% if public_demo %}Quote an answer deterministically from the highest-matching fabricated passage.{% else %}Compose an answer locally from the retrieved context within model input limits.{% endif %}</p></div>
                                 </li>
                                 <li>
                                     <span class="flow-index">04</span>
@@ -350,20 +355,26 @@
                         <section class="overview-section evaluation-section" aria-labelledby="evaluation-title">
                             <div class="section-heading section-heading-split">
                                 <div>
-                                    <p class="eyebrow">Measured performance</p>
-                                    <h2 id="evaluation-title">Evaluation evidence</h2>
+                                    <p class="eyebrow">Evidence boundary</p>
+                                    <h2 id="evaluation-title">Public-demo assurance</h2>
                                 </div>
-                                <p>{% if accuracy_pct is not none %}{{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set.{% else %}No evaluation result is currently available.{% endif %} Latency varies with local hardware and model state.</p>
+                                {% if public_demo %}
+                                <p>This deployment searches only ten fully fabricated discharge records. It publishes no MIMIC-derived text, index, chart, result, or performance measurement.</p>
+                                {% elif accuracy_pct is not none %}
+                                <p>{{ accuracy_pct }}% keyword-hit accuracy is available in this local, access-controlled run. Local measurements are not published by the public demo.</p>
+                                {% else %}
+                                <p>No evaluation result is loaded for this runtime.</p>
+                                {% endif %}
                             </div>
-                            <div class="primary-figures">
-                                <figure class="analysis-figure">
-                                    <img data-src="{{ url_for('static', filename='eval_accuracy.png') }}" width="1782" height="658" alt="Evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for the fixed structural question set. This evaluation does not establish clinical validity.</figcaption>
-                                </figure>
-                                <figure class="analysis-figure">
-                                    <img data-src="{{ url_for('static', filename='eval_latency.png') }}" width="1782" height="658" alt="Evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
-                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same evaluation run; local performance depends on hardware and runtime conditions.</figcaption>
-                                </figure>
+                            <div class="boundary-columns">
+                                <div>
+                                    <h3>Deterministic public path</h3>
+                                    <p>The hosted demo uses lexical retrieval and extractive responses, with no model download, external AI call, or process-local conversation memory.</p>
+                                </div>
+                                <div>
+                                    <h3>Full local path</h3>
+                                    <p>The SentenceTransformer, FAISS, FLAN-T5, and LangGraph workflow remains available for local use through the separate local dependency set.</p>
+                                </div>
                             </div>
                         </section>
 
@@ -376,7 +387,7 @@
                                 <div>
                                     <h3>Data and retrieval</h3>
                                     <ul>
-                                        <li>The indexed sample does not cover the complete MIMIC-IV-Note corpus.</li>
+                                        <li>{% if public_demo %}The hosted corpus contains only ten fabricated examples and is not representative clinical data.{% else %}The indexed sample does not cover the complete MIMIC-IV-Note corpus.{% endif %}</li>
                                         <li>Retrieval relevance ranks text similarity, not clinical importance or correctness.</li>
                                         <li>Answers can omit relevant facts outside the retrieved passages.</li>
                                     </ul>
@@ -396,22 +407,29 @@
                             <summary>
                                 <span>
                                     <span class="eyebrow">Expandable appendix</span>
-                                    <strong>Dataset and chunking analysis</strong>
+                                    <strong>Deployment data boundary</strong>
                                 </span>
                                 <span class="summary-action" aria-hidden="true">Open</span>
                             </summary>
                             <div class="appendix-content">
-                                <p>These diagnostics informed sampling, preprocessing, and length-bounded section chunking. Images load only when this appendix is expanded.</p>
-                                <div class="appendix-grid">
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_condition_subsets.png') }}" width="1184" height="659" alt="Distribution of condition-keyword coverage in the indexed sample" loading="lazy" decoding="async"><figcaption><strong>Condition coverage.</strong> Keyword-matched distribution used to inspect sampling breadth.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_note_length.png') }}" width="1484" height="658" alt="Distribution of indexed discharge-note lengths" loading="lazy" decoding="async"><figcaption><strong>Note length.</strong> Length distribution informing chunk boundaries.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_section_headers.png') }}" width="1333" height="883" alt="Frequency of discharge-note section headers" loading="lazy" decoding="async"><figcaption><strong>Section structure.</strong> Header frequency behind section-aware chunking.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_chunk_lengths.png') }}" width="1484" height="583" alt="Distribution of chunk lengths" loading="lazy" decoding="async"><figcaption><strong>Chunk length.</strong> Diagnostic for embedding input limits.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_chunks_per_note.png') }}" width="1484" height="583" alt="Distribution of chunks generated per note" loading="lazy" decoding="async"><figcaption><strong>Chunks per note.</strong> Volume introduced by hierarchical splitting.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordfreq_before.png') }}" width="1484" height="584" alt="Common terms before analysis preprocessing" loading="lazy" decoding="async"><figcaption><strong>Before preprocessing.</strong> Common terms in source text.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordfreq_after.png') }}" width="1484" height="583" alt="Common terms after analysis preprocessing" loading="lazy" decoding="async"><figcaption><strong>After preprocessing.</strong> Vocabulary retained for analysis.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordcloud_full.png') }}" width="1424" height="734" alt="Vocabulary map from a source-data reference slice" loading="lazy" decoding="async"><figcaption><strong>Source vocabulary reference.</strong> Secondary exploratory view from a source-data slice.</figcaption></figure>
-                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordcloud_sample.png') }}" width="1424" height="734" alt="Vocabulary map for the indexed sample" loading="lazy" decoding="async"><figcaption><strong>Indexed-sample vocabulary map.</strong> Secondary exploratory view.</figcaption></figure>
+                                <p>The public runtime is intentionally narrower than the credentialed local research workflow.</p>
+                                <div class="boundary-columns">
+                                    <div>
+                                        <h3>Included publicly</h3>
+                                        <ul>
+                                            <li>Ten fabricated discharge-note examples and deterministic retrieval code.</li>
+                                            <li>Source identifiers reserved for the synthetic demo range.</li>
+                                            <li>Static interface assets created specifically for this project.</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h3>Excluded publicly</h3>
+                                        <ul>
+                                            <li>Restricted discharge text, derived chunks, indices, and evaluation outputs.</li>
+                                            <li>Models that require cold-start downloads or persistent local storage.</li>
+                                            <li>External AI calls and process-local conversation memory.</li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </details>

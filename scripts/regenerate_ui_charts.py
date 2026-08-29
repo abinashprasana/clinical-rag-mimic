@@ -1,8 +1,10 @@
 """Regenerate UI charts from existing cached outputs without rerunning models.
 
 This script reads the current preprocessed note sample, cached chunks, and
-evaluation JSON. It writes only PNG files under ``static`` and does not mutate
-the retrieval index, cached dataframes, chunks, or evaluation results.
+evaluation JSON. It writes PNG files only beneath the configured, ignored
+``OUTPUT_DIR`` and does not mutate the retrieval index, cached dataframes,
+chunks, or evaluation results. Generated charts must never be copied into the
+public ``static`` directory when they come from restricted data.
 """
 
 from collections import Counter
@@ -22,8 +24,8 @@ import config
 import viz_style
 
 
-STATIC_DIR = 'static'
 OUTPUT_DIR = config.OUTPUT_DIR
+CHART_DIR = os.path.join(OUTPUT_DIR, 'ui_charts')
 WORD_COLORS = [
     viz_style.ACCENT_LIGHT,
     viz_style.ACCENT,
@@ -38,7 +40,7 @@ def _word_color(*_args, random_state=None, **_kwargs):
 
 
 def _save(name):
-    viz_style.save(os.path.join(STATIC_DIR, name))
+    viz_style.save(os.path.join(CHART_DIR, name))
 
 
 def plot_note_lengths(df_notes):
@@ -193,18 +195,11 @@ def _plot_wordcloud(text, filename, title, seed):
 
 
 def plot_wordclouds(df_notes):
-    # A small source-file slice provides a broader vocabulary reference without
-    # loading or transforming the full credentialed corpus.
-    source_slice = pd.read_csv(
-        config.DATA_PATH,
-        compression='gzip',
-        usecols=['text'],
-        nrows=800,
-        low_memory=False,
-    )
-    broad_text = ' '.join(source_slice['text'].dropna().astype(str))
+    # Both views use only the already-selected local sample. Nothing reaches
+    # beyond OUTPUT_DIR or reads a second slice from the credentialed source.
+    broad_text = ' '.join(df_notes['text'].dropna().head(800).astype(str))
     indexed_text = ' '.join(df_notes['cleaned_text'].dropna().head(800).astype(str))
-    _plot_wordcloud(broad_text, 'eda_wordcloud_full.png', 'Source Vocabulary Reference', config.RANDOM_SEED)
+    _plot_wordcloud(broad_text, 'eda_wordcloud_full.png', 'Indexed Raw-Text Vocabulary', config.RANDOM_SEED)
     _plot_wordcloud(indexed_text, 'eda_wordcloud_sample.png', 'Indexed Sample Vocabulary', config.RANDOM_SEED)
 
 
@@ -285,7 +280,7 @@ def plot_evaluation():
 
 
 def main():
-    os.makedirs(STATIC_DIR, exist_ok=True)
+    os.makedirs(CHART_DIR, exist_ok=True)
     viz_style.apply_style()
     notes = pd.read_pickle(os.path.join(OUTPUT_DIR, 'df_notes_pp.pkl'))
 
@@ -296,7 +291,7 @@ def main():
     plot_wordclouds(notes)
     plot_chunk_diagnostics()
     plot_evaluation()
-    print('Regenerated 11 dark UI charts from existing cached outputs.')
+    print(f'Regenerated 11 local charts under {CHART_DIR}.')
 
 
 if __name__ == '__main__':

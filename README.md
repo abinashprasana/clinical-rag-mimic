@@ -152,16 +152,17 @@ clinical-rag-mimic/
 ├── preprocessing.py    # 8-step cleaning pipeline
 ├── retrieval.py        # Chunk retrieval functions
 ├── viz_style.py        # Shared matplotlib/seaborn styling for all plots
-├── requirements.txt    # Python dependencies
+├── requirements.txt    # Lightweight public deployment dependencies
+├── requirements-local.txt # Full local RAG and research dependencies
 ├── train.py            # Runs full pipeline and saves all outputs
-├── .env.example        # Copy to .env and fill in your own values (.env is gitignored)
+├── .env.local.example  # Copy to .env for the full local pipeline (.env is gitignored)
 ├── scripts/
 │   ├── synthetic_demo_notes.py   # Fabricated notes for the public demo (see Demo Mode above)
 │   ├── build_demo_index.py       # Builds outputs_demo/ from the synthetic notes
 │   ├── evaluate_demo.py          # Same keyword-hit evaluation as evaluation.py, for the demo index
-│   └── regenerate_ui_charts.py   # Regenerates static/*.png from already-cached outputs
+│   └── regenerate_ui_charts.py   # Regenerates ignored OUTPUT_DIR/ui_charts from local caches
 ├── outputs_demo/        # Demo FAISS index + chunk store -- synthetic, safe to commit
-├── static/              # CSS, JS, fonts, brand assets, EDA/evaluation plots
+├── static/              # CSS, JS, fonts, and project-created brand assets
 ├── templates/           # Flask HTML templates
 └── tests/               # pytest unit tests + Playwright browser tests
 ```
@@ -176,7 +177,7 @@ git clone https://github.com/abinashprasana/clinical-rag-mimic.git
 cd clinical-rag-mimic
 
 # 2. Install dependencies
-pip install -r requirements.txt
+pip install -r requirements-local.txt
 
 # 3. Download the dataset
 # Get the MIMIC-IV-Note package from PhysioNet — requires credentialed MIMIC-IV access
@@ -189,7 +190,7 @@ pip install -r requirements.txt
 python train.py
 
 # 5. (Optional, synthetic/unrestricted data only) Enable Gemini routing/clarification
-cp .env.example .env
+cp .env.local.example .env
 # Get a free key at https://aistudio.google.com/apikey, then set it in .env:
 # GEMINI_API_KEY=your-key-here
 # Leave GEMINI_API_KEY blank for MIMIC-IV-Note or any other restricted data.

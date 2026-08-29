@@ -1,4 +1,12 @@
 const { defineConfig, devices } = require("@playwright/test");
+const fs = require("fs");
+const path = require("path");
+
+const workspacePython = path.resolve(".venv", "Scripts", "python.exe");
+const pythonCommand = process.env.PLAYWRIGHT_PYTHON
+  || (process.platform === "win32" && fs.existsSync(workspacePython)
+    ? JSON.stringify(workspacePython)
+    : process.platform === "win32" ? "py -3" : "python3");
 
 module.exports = defineConfig({
   testDir: "./tests/browser",
@@ -14,7 +22,7 @@ module.exports = defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: "py -3.13 tests/ui_fixture_server.py",
+    command: `${pythonCommand} tests/ui_fixture_server.py`,
     url: "http://127.0.0.1:5055",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
