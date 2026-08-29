@@ -78,7 +78,7 @@ The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/
 
 Concretely, `demo_runtime.py`:
 - Embeds the incoming question via Gemini's `gemini-embedding-001` and matches it against `outputs_demo/gemini_chunk_embeddings.pkl`, precomputed embeddings for the exact same 101 chunks (`outputs_demo/chunks_data.pkl`) the local pipeline retrieves against, re-ranked with the same header-relevance boost `retrieval.py` uses for the real dataset.
-- Generates the answer with Gemini (`GEMINI_MODEL`, same model this project already uses for local routing/reflection) from the retrieved passages, using the same system prompt as the local FLAN-T5 pipeline.
+- Generates the answer with Gemini (`gemini-flash-lite-latest`, a separate model from `GEMINI_MODEL`) from the retrieved passages, using the same system prompt as the local FLAN-T5 pipeline. This is deliberately not the same model the local app uses for routing/reflection: that model's free tier caps `generateContent` at only 20 requests/day, discovered by hitting that exact limit during development, which is nowhere near enough for a public demo answering anonymous visitors. `gemini-flash-lite-latest`'s free tier (roughly 1,000-1,500 requests/day) is sized for that instead, on a completely separate quota.
 - Runs that generated answer through the same local faithfulness check (`agent/reflection.py`'s content-word/numeric overlap check) the local pipeline uses, with one retry if it fails, before ever showing it.
 - Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout) -- the app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
 
@@ -87,7 +87,7 @@ Concretely, `demo_runtime.py`:
 | Metric | Public Vercel demo (Gemini-backed RAG) |
 |---|---|
 | Overall Accuracy | 100% (10/10) on this app's own fixed question set |
-| Mean Latency | ~0.6s per question |
+| Mean Latency | ~1.5s per question |
 
 As with the other rows, this is measured only against this project's own 10 canonical questions, not a broad benchmark -- treat it as a real, reproducible number for this specific test rather than a general claim about open-ended reliability.
 
