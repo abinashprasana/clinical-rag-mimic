@@ -164,7 +164,7 @@
                                         </div>
                                         <div>
                                             <dt>Measured accuracy</dt>
-                                            <dd>{% if public_demo %}Not published{% elif accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}Not recorded{% endif %}</dd>
+                                            <dd>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}Not recorded{% endif %}</dd>
                                         </div>
                                     </dl>
                                 </div>
@@ -355,17 +355,44 @@
                         <section class="overview-section evaluation-section" aria-labelledby="evaluation-title">
                             <div class="section-heading section-heading-split">
                                 <div>
+                                    {% if public_demo %}
                                     <p class="eyebrow">Evidence boundary</p>
                                     <h2 id="evaluation-title">Public-demo assurance</h2>
+                                    {% else %}
+                                    <p class="eyebrow">Measured performance</p>
+                                    <h2 id="evaluation-title">Evaluation evidence</h2>
+                                    {% endif %}
                                 </div>
                                 {% if public_demo %}
-                                <p>This deployment searches only ten fully fabricated discharge records. It publishes no MIMIC-derived text, index, chart, result, or performance measurement.</p>
+                                <p>This deployment searches only ten fully fabricated discharge records using a deterministic extractive method, not the full local pipeline. It publishes no MIMIC-derived text, index, or result.</p>
                                 {% elif accuracy_pct is not none %}
-                                <p>{{ accuracy_pct }}% keyword-hit accuracy is available in this local, access-controlled run. Local measurements are not published by the public demo.</p>
+                                <p>{{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set. Latency varies with local hardware and model state.</p>
                                 {% else %}
-                                <p>No evaluation result is loaded for this runtime.</p>
+                                <p>No evaluation result is currently available.</p>
                                 {% endif %}
                             </div>
+                            <div class="primary-figures">
+                                {% if public_demo %}
+                                <figure class="analysis-figure">
+                                    <img data-src="{{ url_for('static', filename='demo_eval_public_accuracy.png') }}" width="1782" height="658" alt="Public demo evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
+                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for the fixed structural question set, measured against the deterministic extractive method actually deployed here, on the ten fabricated demo notes.</figcaption>
+                                </figure>
+                                <figure class="analysis-figure">
+                                    <img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Public demo evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
+                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same fabricated-record evaluation; this deployment performs no model inference.</figcaption>
+                                </figure>
+                                {% else %}
+                                <figure class="analysis-figure">
+                                    <img data-src="{{ url_for('static', filename='eval_accuracy.png') }}" width="1782" height="658" alt="Evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
+                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for the fixed structural question set. This evaluation does not establish clinical validity.</figcaption>
+                                </figure>
+                                <figure class="analysis-figure">
+                                    <img data-src="{{ url_for('static', filename='eval_latency.png') }}" width="1782" height="658" alt="Evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
+                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same evaluation run; local performance depends on hardware and runtime conditions.</figcaption>
+                                </figure>
+                                {% endif %}
+                            </div>
+                            {% if public_demo %}
                             <div class="boundary-columns">
                                 <div>
                                     <h3>Deterministic public path</h3>
@@ -376,6 +403,7 @@
                                     <p>The SentenceTransformer, FAISS, FLAN-T5, and LangGraph workflow remains available for local use through the separate local dependency set.</p>
                                 </div>
                             </div>
+                            {% endif %}
                         </section>
 
                         <section class="overview-section boundary-section" aria-labelledby="limitations-title">
@@ -407,12 +435,45 @@
                             <summary>
                                 <span>
                                     <span class="eyebrow">Expandable appendix</span>
+                                    {% if public_demo %}
                                     <strong>Deployment data boundary</strong>
+                                    {% else %}
+                                    <strong>Dataset and chunking analysis</strong>
+                                    {% endif %}
                                 </span>
                                 <span class="summary-action" aria-hidden="true">Open</span>
                             </summary>
                             <div class="appendix-content">
-                                <p>The public runtime is intentionally narrower than the credentialed local research workflow.</p>
+                                {% if public_demo %}
+                                <p>These diagnostics are generated only from the ten fabricated demo notes, using the same chunking pipeline as the local research workflow. Images load only when this appendix is expanded.</p>
+                                {% else %}
+                                <p>These diagnostics informed sampling, preprocessing, and length-bounded section chunking. Images load only when this appendix is expanded.</p>
+                                {% endif %}
+                                <div class="appendix-grid">
+                                    {% if public_demo %}
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_condition_subsets.png') }}" width="1184" height="659" alt="Distribution of condition-keyword coverage in the fabricated demo notes" loading="lazy" decoding="async"><figcaption><strong>Condition coverage.</strong> Keyword-matched distribution across the ten fabricated demo notes.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_note_length.png') }}" width="1484" height="658" alt="Distribution of fabricated demo-note lengths" loading="lazy" decoding="async"><figcaption><strong>Note length.</strong> Length distribution across the ten fabricated demo notes.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_section_headers.png') }}" width="1333" height="883" alt="Frequency of section headers in the fabricated demo notes" loading="lazy" decoding="async"><figcaption><strong>Section structure.</strong> Header frequency across the ten fabricated demo notes.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_chunk_lengths.png') }}" width="1484" height="583" alt="Distribution of chunk lengths for the fabricated demo notes" loading="lazy" decoding="async"><figcaption><strong>Chunk length.</strong> Diagnostic for the shared chunking pipeline, run on fabricated notes.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_chunks_per_note.png') }}" width="1481" height="583" alt="Distribution of chunks generated per fabricated demo note" loading="lazy" decoding="async"><figcaption><strong>Chunks per note.</strong> Volume introduced by hierarchical splitting of the fabricated notes.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_wordfreq_before.png') }}" width="1484" height="583" alt="Common terms before analysis preprocessing, fabricated demo notes" loading="lazy" decoding="async"><figcaption><strong>Before preprocessing.</strong> Common terms in the fabricated source text.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_wordfreq_after.png') }}" width="1484" height="583" alt="Common terms after analysis preprocessing, fabricated demo notes" loading="lazy" decoding="async"><figcaption><strong>After preprocessing.</strong> Vocabulary retained from the fabricated notes for analysis.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_wordcloud_full.png') }}" width="1424" height="734" alt="Vocabulary map from the fabricated demo notes, raw text" loading="lazy" decoding="async"><figcaption><strong>Raw-text vocabulary.</strong> Exploratory view of the fabricated notes before cleaning.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_wordcloud_sample.png') }}" width="1424" height="734" alt="Vocabulary map for the fabricated demo notes, indexed sample" loading="lazy" decoding="async"><figcaption><strong>Indexed-sample vocabulary map.</strong> Exploratory view of the fabricated notes after cleaning.</figcaption></figure>
+                                    {% else %}
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_condition_subsets.png') }}" width="1184" height="659" alt="Distribution of condition-keyword coverage in the indexed sample" loading="lazy" decoding="async"><figcaption><strong>Condition coverage.</strong> Keyword-matched distribution used to inspect sampling breadth.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_note_length.png') }}" width="1484" height="658" alt="Distribution of indexed discharge-note lengths" loading="lazy" decoding="async"><figcaption><strong>Note length.</strong> Length distribution informing chunk boundaries.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_section_headers.png') }}" width="1333" height="883" alt="Frequency of discharge-note section headers" loading="lazy" decoding="async"><figcaption><strong>Section structure.</strong> Header frequency behind section-aware chunking.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_chunk_lengths.png') }}" width="1484" height="583" alt="Distribution of chunk lengths" loading="lazy" decoding="async"><figcaption><strong>Chunk length.</strong> Diagnostic for embedding input limits.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_chunks_per_note.png') }}" width="1484" height="583" alt="Distribution of chunks generated per note" loading="lazy" decoding="async"><figcaption><strong>Chunks per note.</strong> Volume introduced by hierarchical splitting.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordfreq_before.png') }}" width="1484" height="584" alt="Common terms before analysis preprocessing" loading="lazy" decoding="async"><figcaption><strong>Before preprocessing.</strong> Common terms in source text.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordfreq_after.png') }}" width="1484" height="583" alt="Common terms after analysis preprocessing" loading="lazy" decoding="async"><figcaption><strong>After preprocessing.</strong> Vocabulary retained for analysis.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordcloud_full.png') }}" width="1424" height="734" alt="Vocabulary map from a source-data reference slice" loading="lazy" decoding="async"><figcaption><strong>Source vocabulary reference.</strong> Secondary exploratory view from a source-data slice.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eda_wordcloud_sample.png') }}" width="1424" height="734" alt="Vocabulary map for the indexed sample" loading="lazy" decoding="async"><figcaption><strong>Indexed-sample vocabulary map.</strong> Secondary exploratory view.</figcaption></figure>
+                                    {% endif %}
+                                </div>
+                                {% if public_demo %}
+                                <p>The public runtime itself is intentionally simpler than this chunking and embedding pipeline: it matches keywords directly against note sections rather than running FAISS retrieval, so the charts above describe the fabricated dataset and the shared chunking code, not the live answering algorithm.</p>
                                 <div class="boundary-columns">
                                     <div>
                                         <h3>Included publicly</h3>
@@ -431,6 +492,7 @@
                                         </ul>
                                     </div>
                                 </div>
+                                {% endif %}
                             </div>
                         </details>
 

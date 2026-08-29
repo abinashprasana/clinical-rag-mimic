@@ -58,6 +58,7 @@ def _load_local_dependencies():
 def _initialize_runtime(runtime):
     if runtime == PUBLIC_RUNTIME:
         from demo_runtime import (
+            PUBLIC_ACCURACY_PCT,
             PUBLIC_DATASET_LABEL,
             PUBLIC_GENERATOR_LABEL,
             run_turn as demo_runner,
@@ -67,6 +68,7 @@ def _initialize_runtime(runtime):
             'dataset_label': PUBLIC_DATASET_LABEL,
             'generator_label': PUBLIC_GENERATOR_LABEL,
             'output_dir': None,
+            'accuracy_pct': PUBLIC_ACCURACY_PCT,
             'public_demo': True,
         }
 
@@ -87,6 +89,7 @@ def _initialize_runtime(runtime):
         'dataset_label': config.DATASET_LABEL,
         'generator_label': config.LOCAL_GENERATOR_MODEL,
         'output_dir': config.OUTPUT_DIR,
+        'accuracy_pct': None,
         'public_demo': False,
     }
 
@@ -140,9 +143,9 @@ def create_app(runtime=LOCAL_RUNTIME):
 
     @app.route('/')
     def index():
-        accuracy_pct = None
+        accuracy_pct = runtime_state['accuracy_pct']
         output_dir = runtime_state['output_dir']
-        if output_dir:
+        if accuracy_pct is None and output_dir:
             eval_path = os.path.join(output_dir, 'evaluation_results.json')
             if os.path.exists(eval_path):
                 with open(eval_path, encoding='utf-8') as handle:

@@ -21,6 +21,14 @@ static/eval_*.png
 !outputs_demo/*.pkl
 !outputs_demo/*.index
 
+# Intermediate build caches for regenerating outputs_demo's own System
+# Overview charts (scripts/build_demo_chart_inputs.py,
+# scripts/regenerate_ui_charts.py). Safe (synthetic-only) but not needed by a
+# fresh clone -- the finished charts already live in static/demo_*.png.
+outputs_demo/df_notes_pp.pkl
+outputs_demo/chunks_temp.pkl
+outputs_demo/ui_charts/
+
 # Jupyter and Python caches
 .venv/
 .vercel-venv/

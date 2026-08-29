@@ -12,7 +12,7 @@ Run once, whenever scripts/synthetic_demo_notes.py changes:
 
 To actually serve from this index instead of the real one, set in .env:
     OUTPUT_DIR=outputs_demo/
-    DATASET_LABEL=Synthetic demo notes (not real patient data)
+    DATASET_LABEL=Synthetic demo (fabricated notes; no patient data; real MIMIC-IV-Note data requires credentialed PhysioNet access)
 """
 import os
 import pickle

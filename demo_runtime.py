@@ -20,8 +20,20 @@ from typing import Iterable
 from scripts.synthetic_demo_notes import DEMO_NOTES
 
 
-PUBLIC_DATASET_LABEL = "Synthetic demo notes (fabricated; no patient data)"
+PUBLIC_DATASET_LABEL = (
+    "Synthetic demo (fabricated notes; no patient data; real MIMIC-IV-Note "
+    "data requires credentialed PhysioNet access)"
+)
 PUBLIC_GENERATOR_LABEL = "Deterministic extractive demo"
+
+# Measured by scripts/evaluate_public_demo.py against the same 10-question
+# keyword-hit set evaluate_demo.py uses, run directly against this module's
+# run_turn(). Not computed live at request time: importing evaluate_demo.py
+# here would pull in sentence-transformers/FAISS/FLAN-T5, exactly the heavy
+# dependencies this module exists to avoid on a Vercel cold start. Re-run
+# that script and update this constant if _score_chunk, _select_evidence, or
+# DEMO_NOTES change.
+PUBLIC_ACCURACY_PCT = 100
 
 _STOPWORDS = {
     "a", "about", "after", "all", "an", "and", "are", "as", "at", "be",
