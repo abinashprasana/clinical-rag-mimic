@@ -109,7 +109,7 @@
                                     <h2 id="welcome-title">Trace every answer back to its source</h2>
                                     <p class="welcome-lead">
                                         {% if public_demo %}
-                                        Ask about fully fabricated discharge records. The public demo retrieves matching passages, returns an extractive answer, and exposes the evidence used without calling an external AI service.
+                                        Ask about fully fabricated discharge records. The public demo retrieves matching passages via the Gemini API, generates an answer grounded in them, and exposes the evidence used.
                                         {% else %}
                                         Ask about de-identified discharge records or FDA label information. The system retrieves supporting passages, generates locally, and exposes the evidence used.
                                         {% endif %}
@@ -156,7 +156,7 @@
                                         </div>
                                         <div>
                                             <dt>Generation</dt>
-                                            <dd>{% if public_demo %}Server-side · {% else %}Local · {% endif %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}</dd>
+                                            <dd>{% if public_demo %}{{ generator_model | default('Gemini') }}{% else %}Local · {{ generator_model | default('FLAN-T5') | replace('google/', '') }}{% endif %}</dd>
                                         </div>
                                         <div>
                                             <dt>Retrieval</dt>
@@ -165,7 +165,7 @@
                                         <div>
                                             <dt>Measured accuracy</dt>
                                             {% if public_demo %}
-                                            <dd title="Measured only on this app's own fixed 10-question set, which shares vocabulary with the deterministic method's category rules. Rephrased questions can match the wrong section; see the evaluation notes below.">{{ accuracy_pct }}% on fixed set, not generalization-tested</dd>
+                                            <dd title="Measured only on this app's own fixed 10-question set with scripts/evaluate_public_demo.py. Falls back to a simpler offline method if Gemini is unavailable; see the evaluation notes below.">{{ accuracy_pct }}% on fixed set</dd>
                                             {% elif accuracy_pct is not none %}
                                             <dd>{{ accuracy_pct }}%</dd>
                                             {% else %}
@@ -318,13 +318,13 @@
                             </div>
                             <div>
                                 <span>Generation</span>
-                                <strong>{% if public_demo %}Extractive{% else %}Local{% endif %}</strong>
+                                <strong>{% if public_demo %}Gemini API{% else %}Local{% endif %}</strong>
                                 <small>{{ generator_model | default('FLAN-T5') | replace('google/', '') }}</small>
                             </div>
                             <div>
                                 <span>Measured accuracy</span>
                                 <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}—{% endif %}</strong>
-                                <small>{% if public_demo %}Fixed set only, not generalization-tested{% else %}Fixed structural question set{% endif %}</small>
+                                <small>Fixed structural question set</small>
                             </div>
                         </section>
 
@@ -345,7 +345,7 @@
                                 </li>
                                 <li>
                                     <span class="flow-index">03</span>
-                                    <div><h3>Generate</h3><p>{% if public_demo %}Quote an answer deterministically from the highest-matching fabricated passage.{% else %}Compose an answer locally from the retrieved context within model input limits.{% endif %}</p></div>
+                                    <div><h3>Generate</h3><p>{% if public_demo %}Compose an answer from the retrieved passages via the Gemini API, or quote the top passage directly if Gemini is unavailable.{% else %}Compose an answer locally from the retrieved context within model input limits.{% endif %}</p></div>
                                 </li>
                                 <li>
                                     <span class="flow-index">04</span>
@@ -370,7 +370,7 @@
                                     {% endif %}
                                 </div>
                                 {% if public_demo %}
-                                <p>This deployment searches only ten fully fabricated discharge records using a deterministic extractive method, not the full local pipeline. It publishes no MIMIC-derived text, index, or result. Its accuracy is only measured against a small fixed question set that shares wording with its own matching rules, so it is not evidence of general question-answering ability; a differently worded question can match the wrong record section.</p>
+                                <p>This deployment searches only ten fully fabricated discharge records. It retrieves and generates via the Gemini API rather than loading models in-process, and falls back to a simpler offline method if Gemini is unavailable. It publishes no MIMIC-derived text, index, or result, and its accuracy is measured only against this app's own small fixed question set, not a general-purpose benchmark.</p>
                                 {% elif accuracy_pct is not none %}
                                 <p>{{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set. Latency varies with local hardware and model state.</p>
                                 {% else %}
@@ -381,7 +381,7 @@
                                 {% if public_demo %}
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_accuracy.png') }}" width="1782" height="658" alt="Public demo evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for this app's own fixed 10-question set, which was written using the same category vocabulary as the extractive method's section-matching rules. Rephrased or open-ended questions are not covered by this test and can match the wrong section.</figcaption>
+                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for this app's own fixed 10-question set, measured against the actual Gemini-backed retrieval and generation deployed here (with offline fallback). Not a general-purpose benchmark.</figcaption>
                                 </figure>
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Public demo evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
@@ -401,8 +401,8 @@
                             {% if public_demo %}
                             <div class="boundary-columns">
                                 <div>
-                                    <h3>Deterministic public path</h3>
-                                    <p>The hosted demo uses lexical retrieval and extractive responses, with no model download, external AI call, or process-local conversation memory.</p>
+                                    <h3>Public path</h3>
+                                    <p>The hosted demo retrieves and generates via the Gemini API, with no model download and no process-local conversation memory, falling back to offline keyword matching if Gemini is unavailable.</p>
                                 </div>
                                 <div>
                                     <h3>Full local path</h3>
@@ -422,7 +422,7 @@
                                     <h3>Data and retrieval</h3>
                                     <ul>
                                         <li>{% if public_demo %}The hosted corpus contains only ten fabricated examples and is not representative clinical data.{% else %}The indexed sample does not cover the complete MIMIC-IV-Note corpus.{% endif %}</li>
-                                        <li>{% if public_demo %}Section-matching is keyword-based, not semantic: a question like "what was prescribed to take at home" can match the discharge disposition section instead of medications because it contains the word "home".{% else %}Retrieval relevance ranks text similarity, not clinical importance or correctness.{% endif %}</li>
+                                        <li>{% if public_demo %}If Gemini is unavailable, this deployment falls back to a simpler offline keyword-matching method with reduced retrieval quality.{% else %}Retrieval relevance ranks text similarity, not clinical importance or correctness.{% endif %}</li>
                                         <li>Answers can omit relevant facts outside the retrieved passages.</li>
                                     </ul>
                                 </div>
@@ -479,7 +479,7 @@
                                     {% endif %}
                                 </div>
                                 {% if public_demo %}
-                                <p>The public runtime itself is intentionally simpler than this chunking and embedding pipeline: it matches keywords directly against note sections rather than running FAISS retrieval, so the charts above describe the fabricated dataset and the shared chunking code, not the live answering algorithm.</p>
+                                <p>The public runtime retrieves against these same chunks using Gemini's embedding API rather than a locally-loaded FAISS index, so the charts above describe the same corpus and chunking pipeline the live answering algorithm actually searches.</p>
                                 <div class="boundary-columns">
                                     <div>
                                         <h3>Included publicly</h3>

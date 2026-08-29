@@ -323,12 +323,15 @@ def test_module_level_vercel_app_is_fabricated_and_healthy():
     response = application.test_client().get('/healthz')
 
     assert response.status_code == 200
-    assert response.get_json() == {
-        'status': 'ok',
-        'runtime': 'synthetic-demo',
-        'data_boundary': 'fabricated-only',
-        'external_ai': False,
-    }
+    body = response.get_json()
+    assert body['status'] == 'ok'
+    assert body['runtime'] == 'synthetic-demo'
+    assert body['data_boundary'] == 'fabricated-only'
+    # The public runtime now retrieves and generates via the Gemini API (see
+    # demo_runtime.py), falling back to an offline method only if no key is
+    # configured or a call fails -- so this reflects whether a key is set,
+    # not a hardcoded False.
+    assert body['external_ai'] == bool(app_module.config.GEMINI_API_KEY)
 
 
 def test_public_demo_question_returns_only_synthetic_evidence():

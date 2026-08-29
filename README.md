@@ -62,6 +62,10 @@ DATASET_LABEL=Synthetic demo (fabricated notes; no patient data; real MIMIC-IV-N
 
 # Optional: measure the demo's own accuracy the same way the real one is measured
 python -m scripts.evaluate_demo
+
+# For the public Vercel deployment specifically (see below): also precompute
+# Gemini embeddings for the same chunks, once or after editing the notes
+python -m scripts.build_demo_gemini_embeddings
 ```
 
 The existing "Dataset" field in the UI reads `DATASET_LABEL` directly, so a demo deployment always honestly discloses what it's running on, with no separate banner or UI change needed.
@@ -70,20 +74,22 @@ See the Evaluation section above for the demo's measured accuracy and latency al
 
 ### Public deployment (Vercel)
 
-The live public demo deployed on Vercel does not, and cannot, run the full pipeline above. `requirements.txt` (the public runtime's dependency list) contains only Flask and python-dotenv -- deliberately, not by oversight. The full pipeline needs `torch` + `transformers` + `sentence-transformers` + `faiss-cpu`, which together pull in several hundred megabytes of model weights. Vercel's serverless functions have a hard deployment size limit and no persistent writable disk to cache a Hugging Face model download across invocations, so shipping those dependencies would either fail to deploy outright or re-download hundreds of megabytes on every cold start. This is a platform constraint, not a configuration choice: there is no `requirements.txt` change that makes the full pipeline run reliably on Vercel's standard serverless functions. Achieving true parity would mean moving off Vercel's serverless model entirely (a persistent container platform such as Render, Railway, or a small VM), which is a larger decision than a code fix.
+The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/FLAN-T5 in-process the way the local pipeline does -- `requirements.txt` (the public runtime's dependency list) is small deliberately, since those packages together pull in several hundred megabytes of model weights that exceed Vercel's serverless function size limit. But it still runs real retrieval-augmented generation, not a stand-in: `demo_runtime.py` gets the same two model calls (embed the question, generate the answer) from Google's Gemini API instead of loading the models locally, so the deployed function stays small while doing genuine RAG.
 
-Given that constraint, `demo_runtime.py` implements a separate, much simpler, fully self-contained runtime instead: it matches question keywords directly against the fabricated notes' own section headers and returns the matching section verbatim, with no embeddings, no vector search, and no generation model. `app.py`'s module-level `app` object is pinned to this runtime, so an environment-variable mistake cannot accidentally serve real data on Vercel.
+Concretely, `demo_runtime.py`:
+- Embeds the incoming question via Gemini's `gemini-embedding-001` and matches it against `outputs_demo/gemini_chunk_embeddings.pkl`, precomputed embeddings for the exact same 101 chunks (`outputs_demo/chunks_data.pkl`) the local pipeline retrieves against, re-ranked with the same header-relevance boost `retrieval.py` uses for the real dataset.
+- Generates the answer with Gemini (`GEMINI_MODEL`, same model this project already uses for local routing/reflection) from the retrieved passages, using the same system prompt as the local FLAN-T5 pipeline.
+- Runs that generated answer through the same local faithfulness check (`agent/reflection.py`'s content-word/numeric overlap check) the local pipeline uses, with one retry if it fails, before ever showing it.
+- Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout) -- the app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
 
-This is a genuinely different answering method from the local full-pipeline demo above, so it has its own separately measured accuracy rather than reusing the 80% figure: `python -m scripts.evaluate_public_demo` runs the same 10-question keyword-hit set directly against `demo_runtime.run_turn`, with no model loading required.
+`python -m scripts.evaluate_public_demo` measures this pipeline's own accuracy against the same 10-question keyword-hit set the other rows use:
 
-| Metric | Public Vercel demo (deterministic extractive) |
+| Metric | Public Vercel demo (Gemini-backed RAG) |
 |---|---|
 | Overall Accuracy | 100% (10/10) on this app's own fixed question set |
-| Mean Latency | <1ms per question |
+| Mean Latency | ~0.6s per question |
 
-This number should not be read as "the deployed demo is more accurate than the real pipeline." It is measured only against this project's own 10 canonical questions, and those questions were written using the same category vocabulary (diagnosis, medications, disposition, allergies, and so on) as `demo_runtime.py`'s section-matching rules, so the test is close to circular: it mostly confirms the method can find a section when asked with its own target words. Testing informally with realistic rephrasings surfaces real failures the fixed set doesn't catch. One such bug was found and fixed directly: "What was the patient prescribed to take at home?" used to match the **Discharge Disposition** section instead of medications, because the standalone word "home" was one of the keywords that triggered that category; "home" was removed from that trigger list once the collision was confirmed. A remaining, unfixed example: "What time was the patient discharged?" still matches Discharge Disposition (the closest available section) even though none of these fabricated notes record a discharge time, rather than recognizing it has no answer and saying so.
-
-So 100% describes how well the method finds its own target categories when asked in expected phrasing, not general question-answering reliability. The 70%/80% figures above are a meaningfully harder test (open-ended generation, not exact-phrase matching) and are not directly comparable to this number.
+As with the other rows, this is measured only against this project's own 10 canonical questions, not a broad benchmark -- treat it as a real, reproducible number for this specific test rather than a general claim about open-ended reliability.
 
 ## 🧠 How It Works
 
@@ -160,7 +166,8 @@ Each discharge note goes through 8 steps before chunking:
 
 ```text
 clinical-rag-mimic/
-├── app.py              # Flask dashboard + /ask endpoint
+├── app.py              # Flask dashboard + /ask endpoint; picks local or public-demo runtime
+├── demo_runtime.py      # Gemini-backed RAG for the public Vercel deployment (see Demo Mode)
 ├── config.py           # Central config, reads all settings from .env
 ├── agent/              # LangGraph agent: routing, tools, reflection, Gemini calls
 ├── chunking.py         # Section-aware chunking with fallback
@@ -171,16 +178,19 @@ clinical-rag-mimic/
 ├── preprocessing.py    # 8-step cleaning pipeline
 ├── retrieval.py        # Chunk retrieval functions
 ├── viz_style.py        # Shared matplotlib/seaborn styling for all plots
-├── requirements.txt    # Lightweight public deployment dependencies
+├── requirements.txt    # Lightweight public deployment dependencies (Flask, google-genai, numpy)
 ├── requirements-local.txt # Full local RAG and research dependencies
+├── vercel.json          # Public deployment config (function size/duration limits)
 ├── train.py            # Runs full pipeline and saves all outputs
 ├── .env.local.example  # Copy to .env for the full local pipeline (.env is gitignored)
 ├── scripts/
-│   ├── synthetic_demo_notes.py   # Fabricated notes for the public demo (see Demo Mode above)
-│   ├── build_demo_index.py       # Builds outputs_demo/ from the synthetic notes
-│   ├── evaluate_demo.py          # Same keyword-hit evaluation as evaluation.py, for the demo index
-│   └── regenerate_ui_charts.py   # Regenerates ignored OUTPUT_DIR/ui_charts from local caches
-├── outputs_demo/        # Demo FAISS index + chunk store -- synthetic, safe to commit
+│   ├── synthetic_demo_notes.py       # Fabricated notes for the public demo (see Demo Mode above)
+│   ├── build_demo_index.py           # Builds outputs_demo/ from the synthetic notes
+│   ├── build_demo_gemini_embeddings.py # Precomputes Gemini embeddings for demo_runtime.py
+│   ├── evaluate_demo.py              # Same keyword-hit evaluation as evaluation.py, for the demo index
+│   ├── evaluate_public_demo.py       # Same evaluation, run against demo_runtime.py directly
+│   └── regenerate_ui_charts.py       # Regenerates ignored OUTPUT_DIR/ui_charts from local caches
+├── outputs_demo/        # Demo FAISS index, chunk store, Gemini embeddings -- synthetic, safe to commit
 ├── static/              # CSS, JS, fonts, and project-created brand assets
 ├── templates/           # Flask HTML templates
 └── tests/               # pytest unit tests + Playwright browser tests

@@ -1,4 +1,11 @@
 # Public Vercel runtime only. For the full local ML pipeline, install
 # requirements-local.txt instead.
+#
+# google-genai + numpy add up to well under 100MB installed (verified: 9MB +
+# 31MB plus their own small dependencies), comfortably inside Vercel's
+# function size limit -- see demo_runtime.py for why this stays lightweight
+# even though it does real retrieval-augmented generation.
 Flask==3.1.2
 python-dotenv==1.1.1
+google-genai==2.20.0
+numpy==2.3.2

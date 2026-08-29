@@ -170,7 +170,7 @@ def create_app(runtime=LOCAL_RUNTIME):
             'data_boundary': (
                 'fabricated-only' if runtime_state['public_demo'] else 'local-configured'
             ),
-            'external_ai': False if runtime_state['public_demo'] else bool(
+            'external_ai': bool(config.GEMINI_API_KEY) if runtime_state['public_demo'] else bool(
                 config.ENABLE_EXTERNAL_REFLECTION and config.GEMINI_API_KEY
             ),
         })
