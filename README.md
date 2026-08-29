@@ -76,10 +76,15 @@ This is a genuinely different answering method from the local full-pipeline demo
 
 | Metric | Public Vercel demo (deterministic extractive) |
 |---|---|
-| Overall Accuracy | 100% (10/10) |
+| Overall Accuracy | 100% (10/10) on this app's own fixed question set |
 | Mean Latency | <1ms per question |
 
-The extractive method scores higher here because it quotes an entire matching section verbatim rather than generating a paraphrase, which trivially contains the expected keyword; it is not evidence that the simpler method is a better clinical assistant, only that it is a better keyword-matcher for this particular test.
+This number should not be read as "the deployed demo is more accurate than the real pipeline." It is measured only against this project's own 10 canonical questions, and those questions were written using the same category vocabulary (diagnosis, medications, disposition, allergies, and so on) as `demo_runtime.py`'s section-matching rules, so the test is close to circular: it mostly confirms the method can find a section when asked with its own target words. Testing it informally with realistic rephrasings surfaces real failures the fixed set doesn't catch, for example:
+
+- "What was the patient prescribed to take at home?" matches the **Discharge Disposition** section ("Home, with the patient discharged...") instead of medications, because the word "home" pulls it into the wrong category.
+- "What time was the patient discharged?" gets the same wrong match, and the answer doesn't contain a time at all.
+
+So 100% describes how well the method finds its own target categories when asked in expected phrasing, not general question-answering reliability. The 70%/80% figures above are a meaningfully harder test (open-ended generation, not exact-phrase matching) and are not directly comparable to this number.
 
 ## 🧠 How It Works
 

@@ -164,7 +164,13 @@
                                         </div>
                                         <div>
                                             <dt>Measured accuracy</dt>
-                                            <dd>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}Not recorded{% endif %}</dd>
+                                            {% if public_demo %}
+                                            <dd title="Measured only on this app's own fixed 10-question set, which shares vocabulary with the deterministic method's category rules. Rephrased questions can match the wrong section; see the evaluation notes below.">{{ accuracy_pct }}% on fixed set, not generalization-tested</dd>
+                                            {% elif accuracy_pct is not none %}
+                                            <dd>{{ accuracy_pct }}%</dd>
+                                            {% else %}
+                                            <dd>Not recorded</dd>
+                                            {% endif %}
                                         </div>
                                     </dl>
                                 </div>
@@ -318,7 +324,7 @@
                             <div>
                                 <span>Measured accuracy</span>
                                 <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}—{% endif %}</strong>
-                                <small>Fixed structural question set</small>
+                                <small>{% if public_demo %}Fixed set only, not generalization-tested{% else %}Fixed structural question set{% endif %}</small>
                             </div>
                         </section>
 
@@ -364,7 +370,7 @@
                                     {% endif %}
                                 </div>
                                 {% if public_demo %}
-                                <p>This deployment searches only ten fully fabricated discharge records using a deterministic extractive method, not the full local pipeline. It publishes no MIMIC-derived text, index, or result.</p>
+                                <p>This deployment searches only ten fully fabricated discharge records using a deterministic extractive method, not the full local pipeline. It publishes no MIMIC-derived text, index, or result. Its accuracy is only measured against a small fixed question set that shares wording with its own matching rules, so it is not evidence of general question-answering ability; a differently worded question can match the wrong record section.</p>
                                 {% elif accuracy_pct is not none %}
                                 <p>{{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set. Latency varies with local hardware and model state.</p>
                                 {% else %}
@@ -375,7 +381,7 @@
                                 {% if public_demo %}
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_accuracy.png') }}" width="1782" height="658" alt="Public demo evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for the fixed structural question set, measured against the deterministic extractive method actually deployed here, on the ten fabricated demo notes.</figcaption>
+                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for this app's own fixed 10-question set, which was written using the same category vocabulary as the extractive method's section-matching rules. Rephrased or open-ended questions are not covered by this test and can match the wrong section.</figcaption>
                                 </figure>
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Public demo evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
@@ -416,7 +422,7 @@
                                     <h3>Data and retrieval</h3>
                                     <ul>
                                         <li>{% if public_demo %}The hosted corpus contains only ten fabricated examples and is not representative clinical data.{% else %}The indexed sample does not cover the complete MIMIC-IV-Note corpus.{% endif %}</li>
-                                        <li>Retrieval relevance ranks text similarity, not clinical importance or correctness.</li>
+                                        <li>{% if public_demo %}Section-matching is keyword-based, not semantic: a question like "what was prescribed to take at home" can match the discharge disposition section instead of medications because it contains the word "home".{% else %}Retrieval relevance ranks text similarity, not clinical importance or correctness.{% endif %}</li>
                                         <li>Answers can omit relevant facts outside the retrieved passages.</li>
                                     </ul>
                                 </div>
