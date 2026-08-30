@@ -915,21 +915,32 @@
 .landing .dataset-result--real .result-plot__accuracy { width: 70%; }
 .landing .dataset-result--demo .result-plot__accuracy { width: 80%; }
 
+/* Centered on the accuracy bar it caps, both vertically and horizontally.
+   The bar is 5px tall at bottom:4px, so its center sits 6.5px up, which puts
+   this 8px dot at bottom:2.5px. It previously used top:0, which left it
+   floating near the top of the 28px plot box, disconnected from the bar. */
 .landing .result-plot__latency {
     position: absolute;
     z-index: 2;
-    top: 0;
+    bottom: 2.5px;
     display: block;
     width: 8px;
     height: 8px;
+    /* left: X% puts the dot's left EDGE at X, so without this the marker
+       renders half its width (4px) to the right of the value it encodes. */
+    transform: translateX(-50%);
     border: 2px solid var(--case-ink-raised);
     border-radius: 50%;
     background: var(--case-amber);
     box-shadow: 0 0 0 1px var(--case-amber);
 }
 
-.landing .dataset-result--real .result-plot__latency { left: 68%; }
-.landing .dataset-result--demo .result-plot__latency { left: 92%; }
+/* The marker caps the end of each accuracy bar, so it tracks the bar width
+   above rather than sitting at an unrelated offset. Keep these in step with
+   .result-plot__accuracy's widths. The per-question latency is reported as
+   text beside the plot, not by this dot's position. */
+.landing .dataset-result--real .result-plot__latency { left: 70%; }
+.landing .dataset-result--demo .result-plot__latency { left: 80%; }
 
 .landing .dataset-results-note {
     max-width: 78ch;

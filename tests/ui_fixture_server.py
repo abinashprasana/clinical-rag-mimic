@@ -41,7 +41,7 @@ def index():
         ),
         retrieval_top_k=5,
         generator_model=(
-            'gemini-2.5-flash-lite (retrieval-augmented, local fallback)'
+            'gemini-flash-lite-latest (retrieval-augmented, local fallback)'
             if public_demo
             else 'google/flan-t5-base'
         ),
