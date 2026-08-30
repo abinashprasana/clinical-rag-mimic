@@ -1,9 +1,9 @@
 """Precomputes Gemini embeddings for the synthetic demo chunks, so the public
-Vercel deployment (demo_runtime.py) can do real retrieval via a lightweight
+Vercel deployment (demo/runtime.py) can do real retrieval via a lightweight
 API call instead of loading sentence-transformers locally.
 
 Reuses the exact same chunks outputs_demo/chunks_data.pkl holds (produced by
-scripts/build_demo_index.py via chunking.section_chunk on the fabricated
+demo/build_index.py via chunking.section_chunk on the fabricated
 notes), so the public deployment retrieves against the identical corpus the
 local full pipeline does -- only the embedding model differs (Gemini's
 hosted API instead of a locally-loaded sentence-transformer).
@@ -11,11 +11,11 @@ hosted API instead of a locally-loaded sentence-transformer).
 Requires GEMINI_API_KEY to be set (in .env locally). Writes a small file
 (~101 chunks x 3072 floats, well under 2MB) that is safe and necessary to
 commit: it contains only vectors and the fabricated chunk text/provenance
-already public in scripts/synthetic_demo_notes.py, nothing from restricted
+already public in demo/notes.py, nothing from restricted
 data.
 
-Run once, whenever scripts/synthetic_demo_notes.py changes:
-    python -m scripts.build_demo_gemini_embeddings
+Run once, whenever demo/notes.py changes:
+    python -m demo.build_gemini_embeddings
 """
 import pickle
 import time

@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-import demo_runtime
-from demo_runtime import PUBLIC_DATASET_LABEL, run_turn
+import demo.runtime as demo_runtime
+from demo.runtime import PUBLIC_DATASET_LABEL, run_turn
 
 
 @pytest.fixture(autouse=False)

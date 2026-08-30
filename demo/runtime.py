@@ -34,7 +34,7 @@ from google.genai import types
 
 import config
 from agent.reflection import local_reflect
-from scripts.synthetic_demo_notes import DEMO_NOTES
+from demo.notes import DEMO_NOTES
 
 EMBEDDING_MODEL = 'models/gemini-embedding-001'
 EMBEDDINGS_PATH = 'outputs_demo/gemini_chunk_embeddings.pkl'

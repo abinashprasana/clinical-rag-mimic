@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
-import viz_style
+import core.viz_style as viz_style
 import config
 
 MIMIC_SECTIONS = config.MIMIC_SECTIONS

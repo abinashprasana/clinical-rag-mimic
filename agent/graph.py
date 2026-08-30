@@ -19,8 +19,8 @@ from agent.state import AgentState
 from agent.tools import fda_label_tool
 from agent.reflection import local_reflect
 from agent import llm
-from retrieval import retrieve_chunks
-from generation import generate_answer
+from core.retrieval import retrieve_chunks
+from core.generation import generate_answer
 import config
 
 REFUSAL_TEXT = (

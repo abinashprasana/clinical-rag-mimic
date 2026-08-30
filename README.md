@@ -32,16 +32,16 @@ The interface opens on a case-study page covering what the system is, the two da
 
 ## 🧪 Evaluation
 
-`evaluation.py` provides a 10-question keyword-matching harness for local testing after retrieval or generation changes. Runs against MIMIC-IV-Note write their responses, scores, latency measurements, and plots under the ignored `outputs/` directory. The individual questions, generated answers, and retrieved passages from that run are never published, since they are derived from restricted clinical text. The two aggregate numbers below are safe to share on their own, since they describe pipeline performance and reveal nothing about the underlying notes.
+`core/evaluation.py` provides a 10-question keyword-matching harness for local testing after retrieval or generation changes. Runs against MIMIC-IV-Note write their responses, scores, latency measurements, and plots under the ignored `outputs/` directory. The individual questions, generated answers, and retrieved passages from that run are never published, since they are derived from restricted clinical text. The two aggregate numbers below are safe to share on their own, since they describe pipeline performance and reveal nothing about the underlying notes.
 
-Anyone without credentialed PhysioNet access can still verify the pipeline using the fabricated demo corpus. Run `python -m scripts.evaluate_demo` to reproduce the demo numbers without needing access to restricted clinical data.
+Anyone without credentialed PhysioNet access can still verify the pipeline using the fabricated demo corpus. Run `python -m demo.evaluate` to reproduce the demo numbers without needing access to restricted clinical data.
 
 | Metric | Real dataset (MIMIC-IV-Note v2.2) | Synthetic demo |
 |---|---|---|
 | Overall Accuracy | 70% (7/10) | 80% (8/10) |
 | Mean Latency | ~3.4s per question | ~4.6s per question |
 
-The real-dataset row is measured on de-identified MIMIC-IV-Note discharge summaries under credentialed PhysioNet access. No note text, generated answer, or retrieved passage from that run is included in this repository, only the two aggregate numbers above. The demo row is measured on the fabricated notes in `scripts/synthetic_demo_notes.py` and is fully reproducible by anyone who clones this repository.
+The real-dataset row is measured on de-identified MIMIC-IV-Note discharge summaries under credentialed PhysioNet access. No note text, generated answer, or retrieved passage from that run is included in this repository, only the two aggregate numbers above. The demo row is measured on the fabricated notes in `demo/notes.py` and is fully reproducible by anyone who clones this repository.
 
 ## 🗂️ Dataset
 
@@ -59,24 +59,24 @@ Access requires completing CITI training and signing a PhysioNet Data Use Agreem
 
 The DUA above is a real constraint on public deployment, not just on this repository: it requires "I will not share access to PhysioNet restricted data with anyone else," and a live app that returns excerpts from real discharge notes to anonymous visitors would do exactly that, regardless of how the underlying files are stored. So a public-facing deployment (a shared demo link, a portfolio project) needs a dataset that was never restricted in the first place.
 
-`scripts/synthetic_demo_notes.py` holds ten fully fabricated discharge notes. No real patient, no real admission, every vital, lab, and diagnosis was invented for this project, written in the same section-header format MIMIC-IV-Note uses, so the existing chunking/embedding/retrieval/generation pipeline treats them identically to real notes. `scripts/build_demo_index.py` runs them through that same pipeline into `outputs_demo/`, a separate, git-safe directory from the real `outputs/` (which must never be committed).
+`demo/notes.py` holds ten fully fabricated discharge notes. No real patient, no real admission, every vital, lab, and diagnosis was invented for this project, written in the same section-header format MIMIC-IV-Note uses, so the existing chunking/embedding/retrieval/generation pipeline treats them identically to real notes. `demo/build_index.py` runs them through that same pipeline into `outputs_demo/`, a separate, git-safe directory from the real `outputs/` (which must never be committed).
 
 To reuse this if you fork or extend the project:
 
 ```bash
-# Build the demo index once, or after editing synthetic_demo_notes.py
-python -m scripts.build_demo_index
+# Build the demo index once, or after editing demo/notes.py
+python -m demo.build_index
 
 # Point the app at it (in .env, or as platform environment variables on deploy)
 OUTPUT_DIR=outputs_demo/
 DATASET_LABEL=Synthetic demo (fabricated notes; no patient data; real MIMIC-IV-Note data requires credentialed PhysioNet access)
 
 # Optional: measure the demo's own accuracy the same way the real one is measured
-python -m scripts.evaluate_demo
+python -m demo.evaluate
 
 # For the public Vercel deployment specifically (see below): also precompute
 # Gemini embeddings for the same chunks, once or after editing the notes
-python -m scripts.build_demo_gemini_embeddings
+python -m demo.build_gemini_embeddings
 ```
 
 The existing "Dataset" field in the UI reads `DATASET_LABEL` directly, so a demo deployment always honestly discloses what it's running on, with no separate banner or UI change needed.
@@ -87,15 +87,15 @@ See the Evaluation section above for the demo's measured accuracy and latency al
 
 Live at **[clinical-rag-mimic-ecvl.vercel.app](https://clinical-rag-mimic-ecvl.vercel.app/)**.
 
-The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/FLAN-T5 in-process the way the local pipeline does. `requirements.txt` (the public runtime's dependency list) is small deliberately, since those packages together pull in several hundred megabytes of model weights that exceed Vercel's serverless function size limit. But it still runs real retrieval-augmented generation, not a stand-in: `demo_runtime.py` gets the same two model calls (embed the question, generate the answer) from Google's Gemini API instead of loading the models locally, so the deployed function stays small while doing genuine RAG.
+The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/FLAN-T5 in-process the way the local pipeline does. `requirements.txt` (the public runtime's dependency list) is small deliberately, since those packages together pull in several hundred megabytes of model weights that exceed Vercel's serverless function size limit. But it still runs real retrieval-augmented generation, not a stand-in: `demo/runtime.py` gets the same two model calls (embed the question, generate the answer) from Google's Gemini API instead of loading the models locally, so the deployed function stays small while doing genuine RAG.
 
-Concretely, `demo_runtime.py`:
-- Embeds the incoming question via Gemini's `gemini-embedding-001` and matches it against `outputs_demo/gemini_chunk_embeddings.pkl`, precomputed embeddings for the exact same 101 chunks (`outputs_demo/chunks_data.pkl`) the local pipeline retrieves against, re-ranked with the same header-relevance boost `retrieval.py` uses for the real dataset.
+Concretely, `demo/runtime.py`:
+- Embeds the incoming question via Gemini's `gemini-embedding-001` and matches it against `outputs_demo/gemini_chunk_embeddings.pkl`, precomputed embeddings for the exact same 101 chunks (`outputs_demo/chunks_data.pkl`) the local pipeline retrieves against, re-ranked with the same header-relevance boost `core/retrieval.py` uses for the real dataset.
 - Generates the answer with Gemini (`gemini-flash-lite-latest`, a separate model from `GEMINI_MODEL`) from the retrieved passages, using the same system prompt as the local FLAN-T5 pipeline. This is deliberately not the same model the local app uses for routing/reflection: that model's free tier caps `generateContent` at only 20 requests/day, discovered by hitting that exact limit during development, which is nowhere near enough for a public demo answering anonymous visitors. `gemini-flash-lite-latest`'s free tier (roughly 1,000-1,500 requests/day) is sized for that instead, on a completely separate quota.
 - Runs that generated answer through the same local faithfulness check (`agent/reflection.py`'s content-word/numeric overlap check) the local pipeline uses, with one retry if it fails, before ever showing it.
 - Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout). The app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
 
-`python -m scripts.evaluate_public_demo` runs the same 10-question keyword-hit check against this pipeline. Its result is reported as a raw count, not a percentage, and deliberately not placed in the accuracy table above: a bare "100%" sitting next to the real dataset's 70% and the local synthetic demo's 80% would misleadingly read as "the deployed demo beats the real research pipeline," when all three numbers are actually the same small 10-question smoke test, not a benchmark that scales to general reliability.
+`python -m demo.evaluate_public` runs the same 10-question keyword-hit check against this pipeline. Its result is reported as a raw count, not a percentage, and deliberately not placed in the accuracy table above: a bare "100%" sitting next to the real dataset's 70% and the local synthetic demo's 80% would misleadingly read as "the deployed demo beats the real research pipeline," when all three numbers are actually the same small 10-question smoke test, not a benchmark that scales to general reliability.
 
 | Metric | Public Vercel demo (Gemini-backed RAG) |
 |---|---|
@@ -140,12 +140,12 @@ The local faithfulness check is what actually gates a refusal. It runs on every 
 | FAISS Index Type | `IndexFlatIP` (cosine similarity via L2 normalisation) |
 | Chunking Strategy | Section-aware (16 MIMIC headers), hierarchically sub-chunked at 180 words so long sections don't exceed the embedding model's 256-token limit |
 | Chunk Overlap | 40 words |
-| Top-K Retrieval | 5 chunks per query, de-duplicated against near-identical overlapping passages, re-ranked by a header-relevance boost (a chunk whose own section header lexically matches the question's words is favored, see `retrieval.py`'s `_header_boost`) |
+| Top-K Retrieval | 5 chunks per query, de-duplicated against near-identical overlapping passages, re-ranked by a header-relevance boost (a chunk whose own section header lexically matches the question's words is favored, see `core/retrieval.py`'s `_header_boost`) |
 | Generation Model | `google/flan-t5-base` |
 | Repetition Controls | `repetition_penalty=1.15`, `no_repeat_ngram_size=4`, which suppresses the model re-emitting the same line multiple times, tuned down from an initial 1.3/3 after that stronger setting was found to also strip dose details (e.g. "60 mg PO daily") from medication lists |
 | Embedding Batch Size | 64 |
 
-**System prompt used** (see `generation.py` for the exact current version, including the one-shot example that teaches the model to answer in prose rather than copying the source's own numbering):
+**System prompt used** (see `core/generation.py` for the exact current version, including the one-shot example that teaches the model to answer in prose rather than copying the source's own numbering):
 ```
 You are a clinical assistant answering questions about hospital discharge notes
 covering a range of clinical conditions.
@@ -177,36 +177,46 @@ Each discharge note goes through 8 steps before chunking:
 
 ```text
 clinical-rag-mimic/
-├── app.py              # Flask dashboard + /ask endpoint; picks local or public-demo runtime
-├── demo_runtime.py      # Gemini-backed RAG for the public Vercel deployment (see Demo Mode)
-├── config.py           # Central config, reads all settings from .env
-├── agent/              # LangGraph agent: routing, tools, reflection, Gemini calls
-├── chunking.py         # Section-aware chunking with fallback
-├── data.py             # Data loading, EDA, condition subsets
-├── embeddings.py       # Embedding generation and FAISS index
-├── evaluation.py       # 10-question evaluation, saves results and plots
-├── generation.py       # Flan-T5 loader, prompt builder, answer generation
-├── preprocessing.py    # 8-step cleaning pipeline
-├── retrieval.py        # Chunk retrieval functions
-├── viz_style.py        # Shared matplotlib/seaborn styling for all plots
-├── requirements.txt    # Lightweight public deployment dependencies (Flask, google-genai, numpy)
-├── requirements-local.txt # Full local RAG and research dependencies
-├── vercel.json          # Public deployment config (function size/duration limits)
-├── train.py            # Runs full pipeline and saves all outputs
-├── .env.local.example  # Copy to .env for the full local pipeline (.env is gitignored)
+├── app.py                  # Flask entrypoint + /ask; picks the local or public-demo runtime
+├── train.py                # Runs the full real-data pipeline and saves all outputs
+├── config.py               # Central config, reads all settings from .env
+│
+├── core/                   # Real-data pipeline (MIMIC-IV-Note). Imported lazily by app.py,
+│   │                       # so the public function never pulls in torch or faiss.
+│   ├── preprocessing.py    # 8-step cleaning pipeline
+│   ├── chunking.py         # Section-aware chunking with fallback
+│   ├── embeddings.py       # Embedding generation and FAISS index
+│   ├── retrieval.py        # Chunk retrieval functions
+│   ├── generation.py       # Flan-T5 loader, prompt builder, answer generation
+│   ├── data.py             # Data loading, EDA, condition subsets
+│   ├── evaluation.py       # 10-question evaluation, saves results and plots
+│   └── viz_style.py        # Shared matplotlib/seaborn styling for all plots
+│
+├── demo/                   # Everything synthetic. Nothing here reads MIMIC-IV-Note or
+│   │                       # outputs/, so it all runs without credentialed access.
+│   ├── notes.py            # The ten fabricated discharge notes (see Demo Mode above)
+│   ├── runtime.py          # Gemini-backed RAG for the public Vercel deployment
+│   ├── build_index.py      # Builds outputs_demo/ from the fabricated notes
+│   ├── build_gemini_embeddings.py # Precomputes Gemini embeddings for demo/runtime.py
+│   ├── build_chart_inputs.py      # Builds the cached inputs regenerate_ui_charts.py reads
+│   ├── evaluate.py         # Same keyword-hit evaluation as core/evaluation.py, on the demo index
+│   └── evaluate_public.py  # Same evaluation, run against demo/runtime.py directly
+│
+├── agent/                  # LangGraph agent: routing, tools, reflection, Gemini calls
 ├── scripts/
-│   ├── synthetic_demo_notes.py       # Fabricated notes for the public demo (see Demo Mode above)
-│   ├── build_demo_index.py           # Builds outputs_demo/ from the synthetic notes
-│   ├── build_demo_gemini_embeddings.py # Precomputes Gemini embeddings for demo_runtime.py
-│   ├── evaluate_demo.py              # Same keyword-hit evaluation as evaluation.py, for the demo index
-│   ├── evaluate_public_demo.py       # Same evaluation, run against demo_runtime.py directly
-│   ├── build_demo_chart_inputs.py    # Builds the cached inputs regenerate_ui_charts.py reads
-│   └── regenerate_ui_charts.py       # Regenerates ignored OUTPUT_DIR/ui_charts from local caches
-├── outputs_demo/        # Demo FAISS index, chunk store, Gemini embeddings -- synthetic, safe to commit
-├── static/              # CSS, JS, fonts, images, and project-created brand assets
-├── templates/           # Flask HTML templates (index.html holds both the case study and the workspace)
-└── tests/               # pytest unit tests + Playwright browser tests
+│   └── regenerate_ui_charts.py # Regenerates ignored OUTPUT_DIR/ui_charts from local caches
+│
+├── outputs_demo/           # Demo FAISS index, chunk store, Gemini embeddings. Synthetic, safe to commit
+├── static/                 # CSS, JS, fonts, images, and project-created brand assets
+├── templates/              # Flask HTML templates (index.html holds the case study and the workspace)
+├── tests/                  # pytest unit tests + Playwright browser tests
+├── requirements.txt        # Lightweight public deployment dependencies (Flask, google-genai, numpy)
+├── requirements-local.txt  # Full local RAG and research dependencies
+├── vercel.json             # Public deployment config (function size/duration limits)
+└── .env.local.example      # Copy to .env for the full local pipeline (.env is gitignored)
 ```
+
+The split is deliberate: `core/` is the only package that touches restricted data, and `demo/` is the only one the public deployment imports. `app.py` and `train.py` stay at the repository root because they are entrypoints, and Vercel resolves the serverless function from `app.py` there.
 
 > **Note:** the `mimic-iv-note-deidentified-free-text-clinical-notes-2.2/` dataset folder and the `outputs/` folder are not included in this repository. The dataset requires credentialed PhysioNet access. The `outputs/` folder containing the preprocessed sample, FAISS index and chunk data is generated locally when you run `python train.py`.
 
@@ -225,7 +235,7 @@ pip install -r requirements-local.txt
 # https://physionet.org/content/mimic-iv-note/
 # Extract it so discharge.csv.gz ends up at:
 # mimic-iv-note-deidentified-free-text-clinical-notes-2.2/note/discharge.csv.gz
-# (relative to the repository root, see DATA_PATH in data.py)
+# (relative to the repository root, see DATA_PATH in core/data.py)
 
 # 4. Run the training pipeline
 python train.py

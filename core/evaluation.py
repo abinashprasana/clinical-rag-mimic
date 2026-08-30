@@ -8,9 +8,9 @@ if hasattr(sys.stdout, 'reconfigure'):
 import matplotlib.patches as mpatches
 from sentence_transformers import SentenceTransformer
 
-from retrieval import load_index, retrieve_chunks
-from generation import load_generator, generate_answer
-import viz_style
+from core.retrieval import load_index, retrieve_chunks
+from core.generation import load_generator, generate_answer
+import core.viz_style as viz_style
 import config
 
 def main():

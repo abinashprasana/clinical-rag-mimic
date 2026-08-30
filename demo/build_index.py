@@ -1,5 +1,5 @@
 """Builds a FAISS index + chunk store from the fully synthetic demo notes in
-scripts/synthetic_demo_notes.py, writing to outputs_demo/ -- a separate,
+demo/notes.py, writing to outputs_demo/ -- a separate,
 git-safe directory from outputs/ (which holds the real MIMIC-IV-derived
 index and must never be committed).
 
@@ -7,8 +7,8 @@ Reuses the same chunking (chunking.section_chunk) and embedding/index logic
 (embeddings.py) the real pipeline uses, so the demo index is retrieved and
 generated against exactly the same way -- just pointed at synthetic data.
 
-Run once, whenever scripts/synthetic_demo_notes.py changes:
-    python scripts/build_demo_index.py
+Run once, whenever demo/notes.py changes:
+    python demo/build_index.py
 
 To actually serve from this index instead of the real one, set in .env:
     OUTPUT_DIR=outputs_demo/
@@ -21,9 +21,9 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-import chunking
+import core.chunking as chunking
 import config
-from scripts.synthetic_demo_notes import DEMO_NOTES
+from demo.notes import DEMO_NOTES
 
 DEMO_OUTPUT_DIR = 'outputs_demo'
 

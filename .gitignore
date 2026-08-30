@@ -15,14 +15,14 @@ static/eval_*.png
 !package-lock.json
 !vercel.json
 
-# outputs_demo/ is the synthetic-data demo index (scripts/build_demo_index.py)
+# outputs_demo/ is the synthetic-data demo index (demo/build_index.py)
 # -- fabricated notes, safe to commit, exempted from the blanket rules above
 !outputs_demo/
 !outputs_demo/*.pkl
 !outputs_demo/*.index
 
 # Intermediate build caches for regenerating outputs_demo's own System
-# Overview charts (scripts/build_demo_chart_inputs.py,
+# Overview charts (demo/build_chart_inputs.py,
 # scripts/regenerate_ui_charts.py). Safe (synthetic-only) but not needed by a
 # fresh clone -- the finished charts already live in static/demo_*.png.
 outputs_demo/df_notes_pp.pkl

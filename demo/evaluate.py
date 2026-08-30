@@ -9,8 +9,8 @@ import os
 
 from sentence_transformers import SentenceTransformer
 
-from retrieval import load_index, retrieve_chunks
-from generation import load_generator, generate_answer
+from core.retrieval import load_index, retrieve_chunks
+from core.generation import load_generator, generate_answer
 import config
 
 DEMO_OUTPUT_DIR = 'outputs_demo'

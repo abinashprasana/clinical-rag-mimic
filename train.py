@@ -1,7 +1,7 @@
-import data
-import chunking
-import embeddings
-import evaluation
+import core.data as data
+import core.chunking as chunking
+import core.embeddings as embeddings
+import core.evaluation as evaluation
 
 def main():
     print("Starting full pipeline training...")

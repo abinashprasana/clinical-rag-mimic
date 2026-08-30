@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from wordcloud import WordCloud
 
-from preprocessing import clean_for_viz, preprocess_note
-import viz_style
+from core.preprocessing import clean_for_viz, preprocess_note
+import core.viz_style as viz_style
 import config
 
 DATA_PATH = config.DATA_PATH
