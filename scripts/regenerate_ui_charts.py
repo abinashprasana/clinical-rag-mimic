@@ -21,7 +21,7 @@ import pandas as pd
 from wordcloud import WordCloud
 
 import config
-import viz_style
+import core.viz_style as viz_style
 
 
 OUTPUT_DIR = config.OUTPUT_DIR

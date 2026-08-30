@@ -1,5 +1,5 @@
 """Measures the actual accuracy of the deployed Vercel demo runtime
-(demo_runtime.py's deterministic extractive method), using the same
+(demo/runtime.py's deterministic extractive method), using the same
 10-question keyword-hit methodology as evaluation.py and evaluate_demo.py.
 
 This is a separate, real measurement from evaluate_demo.py: that script
@@ -16,9 +16,9 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
-import demo_runtime
-import viz_style
-from scripts.evaluate_demo import EVAL_QUESTIONS, KEYWORD_ALTERNATIVES
+import demo.runtime as demo_runtime
+import core.viz_style as viz_style
+from demo.evaluate import EVAL_QUESTIONS, KEYWORD_ALTERNATIVES
 
 CHART_DIR = 'outputs_demo/ui_charts'
 

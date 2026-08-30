@@ -33,7 +33,7 @@ DEFAULT_TOP_K = int(os.getenv('DEFAULT_TOP_K', 5))
 OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'outputs/')
 # Shown in the UI's "Dataset" field. Set to something like "Synthetic demo
 # notes (not real patient data)" when OUTPUT_DIR points at outputs_demo/ --
-# see scripts/build_demo_index.py -- so a public deployment always honestly
+# see demo/build_index.py -- so a public deployment always honestly
 # discloses when it's not running on real MIMIC-IV data.
 DATASET_LABEL = os.getenv('DATASET_LABEL', 'MIMIC-IV-Note v2.2')
 

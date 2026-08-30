@@ -42,10 +42,10 @@ def _load_local_dependencies():
         from sentence_transformers import SentenceTransformer as transformer
         SentenceTransformer = transformer
     if load_index is None:
-        from retrieval import load_index as index_loader
+        from core.retrieval import load_index as index_loader
         load_index = index_loader
     if load_generator is None:
-        from generation import load_generator as generator_loader
+        from core.generation import load_generator as generator_loader
         load_generator = generator_loader
     if get_graph is None or run_turn is None:
         from agent.graph import get_graph as graph_loader, run_turn as graph_runner
@@ -57,7 +57,7 @@ def _load_local_dependencies():
 
 def _initialize_runtime(runtime):
     if runtime == PUBLIC_RUNTIME:
-        from demo_runtime import (
+        from demo.runtime import (
             PUBLIC_ACCURACY_LABEL,
             PUBLIC_ACCURACY_PCT,
             PUBLIC_DATASET_LABEL,

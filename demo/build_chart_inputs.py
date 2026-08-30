@@ -4,9 +4,9 @@ the schema data.py and chunking.py produce for the real pipeline (see
 train.py). Writes into outputs_demo/ only -- never touches outputs/ or reads
 any real MIMIC-IV data.
 
-Run once, whenever scripts/synthetic_demo_notes.py changes, before
+Run once, whenever demo/notes.py changes, before
 regenerating the demo's own System Overview charts:
-    OUTPUT_DIR=outputs_demo/ python -m scripts.build_demo_chart_inputs
+    OUTPUT_DIR=outputs_demo/ python -m demo.build_chart_inputs
     OUTPUT_DIR=outputs_demo/ python -m scripts.regenerate_ui_charts
 """
 import os
@@ -14,9 +14,9 @@ import pickle
 
 import pandas as pd
 
-import chunking
-import preprocessing
-from scripts.synthetic_demo_notes import DEMO_NOTES
+import core.chunking as chunking
+import core.preprocessing as preprocessing
+from demo.notes import DEMO_NOTES
 
 DEMO_OUTPUT_DIR = 'outputs_demo'
 
