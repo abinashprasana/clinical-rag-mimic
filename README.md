@@ -1,26 +1,36 @@
-<h1 align="center">🏥 Clinical Evidence Assistant: Medical Q&A on MIMIC-IV Discharge Notes</h1>
+<div align="center">
 
-<p align="center">
-  An agentic, evidence-grounded assistant that answers clinical questions from real hospital discharge notes. It routes each question to the right tool, retrieves the supporting passages, and checks its own answer against them before showing it.
-</p>
+# 🏥 Clinical Evidence Assistant
 
-<p align="center">
-  <a href="https://clinical-rag-mimic-ecvl.vercel.app/"><img alt="Live demo" src="https://img.shields.io/badge/Live_Demo-Open_app-62C7D0?logo=vercel&logoColor=white" /></a>
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" />
-  <img alt="Flask" src="https://img.shields.io/badge/Dashboard-Flask-000000?logo=flask&logoColor=white" />
-  <img alt="FAISS" src="https://img.shields.io/badge/Vector_Search-FAISS-6E56CF" />
-  <img alt="Evaluation" src="https://img.shields.io/badge/Evaluation-Local_only-6E56CF" />
-  <img alt="Dataset" src="https://img.shields.io/badge/Data-MIMIC--IV-0078D4" />
-  <img alt="Status" src="https://img.shields.io/badge/Status-Completed-2ea44f" />
-</p>
+**An agentic assistant that answers clinical questions from real hospital discharge notes, and traces every answer back to the passage it came from.**
 
-<p align="center">
-  <b>Live demo:</b> <a href="https://clinical-rag-mimic-ecvl.vercel.app/">clinical-rag-mimic-ecvl.vercel.app</a>
-</p>
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-Dashboard-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![FAISS](https://img.shields.io/badge/Vector%20Search-FAISS-6E56CF?style=for-the-badge)](https://faiss.ai/)
+[![LangGraph](https://img.shields.io/badge/Agent-LangGraph-1C3C3C?style=for-the-badge)](https://langchain-ai.github.io/langgraph/)
+[![Deployment](https://img.shields.io/badge/Deployment-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://clinical-rag-mimic-ecvl.vercel.app/)
+[![Dataset](https://img.shields.io/badge/Data-MIMIC--IV-0078D4?style=for-the-badge)](https://physionet.org/content/mimic-iv-note/)
+[![Status](https://img.shields.io/badge/Status-Completed-2ea44f?style=for-the-badge)](.)
+
+<br/>
+
+*MIMIC-IV-Note v2.2 · 331,793 discharge notes · Section-aware retrieval · Local FLAN-T5 generation · Answers checked against their sources before display*
+
+</div>
+
+---
+
+## 🎬 Live Demo
+
+[![Open Live App](https://img.shields.io/badge/Open%20Live%20App%20%F0%9F%9A%80-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://clinical-rag-mimic-ecvl.vercel.app/)
+
+Deployed on Vercel, no setup needed. Ask a clinical question, see the passages the answer was built from, and read the pipeline breakdown, EDA, and evaluation results in the System Overview tab.
 
 > **What the live demo runs on.** The hosted app answers from **ten fabricated discharge notes**, never from MIMIC-IV-Note. The PhysioNet Data Use Agreement forbids sharing access to the restricted data, and a public site returning real note excerpts to anonymous visitors would do exactly that. It performs genuine retrieval-augmented generation over those fabricated notes through the Gemini API, with the same faithfulness check the local pipeline uses. See [Demo Mode](#-demo-mode-no-credentialed-access-required) for why, and [Public deployment](#public-deployment-vercel) for how.
 >
 > The **local** pipeline is the one that runs on real data, and it runs entirely on CPU with no data leaving the machine. Keep `GEMINI_API_KEY` blank for MIMIC-IV-Note runs: routing and clarification are the only steps that would call out, and they fall back to local keyword rules without a key.
+
+---
 
 ## 🔎 System Scope
 
