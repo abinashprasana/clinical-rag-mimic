@@ -1,10 +1,11 @@
 <h1 align="center">🏥 Clinical Evidence Assistant: Medical Q&A on MIMIC-IV Discharge Notes</h1>
 
 <p align="center">
-  An agentic, evidence-grounded assistant that answers clinical questions from real hospital discharge notes. Retrieval and generation run entirely locally. For restricted-data runs, keep optional external Gemini features disabled; the fully local routing and faithfulness checks remain functional without an API key.
+  An agentic, evidence-grounded assistant that answers clinical questions from real hospital discharge notes. It routes each question to the right tool, retrieves the supporting passages, and checks its own answer against them before showing it.
 </p>
 
 <p align="center">
+  <a href="https://clinical-rag-mimic-ecvl.vercel.app/"><img alt="Live demo" src="https://img.shields.io/badge/Live_Demo-Open_app-62C7D0?logo=vercel&logoColor=white" /></a>
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" />
   <img alt="Flask" src="https://img.shields.io/badge/Dashboard-Flask-000000?logo=flask&logoColor=white" />
   <img alt="FAISS" src="https://img.shields.io/badge/Vector_Search-FAISS-6E56CF" />
@@ -13,11 +14,21 @@
   <img alt="Status" src="https://img.shields.io/badge/Status-Completed-2ea44f" />
 </p>
 
+<p align="center">
+  <b>Live demo:</b> <a href="https://clinical-rag-mimic-ecvl.vercel.app/">clinical-rag-mimic-ecvl.vercel.app</a>
+</p>
+
+> **What the live demo runs on.** The hosted app answers from **ten fabricated discharge notes**, never from MIMIC-IV-Note. The PhysioNet Data Use Agreement forbids sharing access to the restricted data, and a public site returning real note excerpts to anonymous visitors would do exactly that. It performs genuine retrieval-augmented generation over those fabricated notes through the Gemini API, with the same faithfulness check the local pipeline uses. See [Demo Mode](#-demo-mode-no-credentialed-access-required) for why, and [Public deployment](#public-deployment-vercel) for how.
+>
+> The **local** pipeline is the one that runs on real data, and it runs entirely on CPU with no data leaving the machine. Keep `GEMINI_API_KEY` blank for MIMIC-IV-Note runs: routing and clarification are the only steps that would call out, and they fall back to local keyword rules without a key.
+
 ## 🔎 System Scope
 
 Clinical Evidence Assistant answers questions over real de-identified discharge notes from the MIMIC-IV dataset. Ask a plain-language clinical question and it retrieves the relevant sections, routes to the right tool (record lookup or an FDA label lookup), generates an answer locally, and checks that answer against the retrieved text before showing it. If the notes don't contain the answer, it says so instead of guessing.
 
-The default restricted-data mode works entirely on CPU with no paid APIs and no data leaving the local machine. All results are presented through a two-tab Flask dashboard where one tab is for asking questions and the other shows the full pipeline, EDA and evaluation results.
+The default restricted-data mode works entirely on CPU with no paid APIs and no data leaving the local machine.
+
+The interface opens on a case-study page covering what the system is, the two datasets behind it, the measured results for each, and what it deliberately does not decide. From there it hands over to a two-tab workspace where one tab is for asking questions and the other shows the full pipeline, EDA and evaluation results.
 
 ## 🧪 Evaluation
 
@@ -74,13 +85,15 @@ See the Evaluation section above for the demo's measured accuracy and latency al
 
 ### Public deployment (Vercel)
 
-The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/FLAN-T5 in-process the way the local pipeline does -- `requirements.txt` (the public runtime's dependency list) is small deliberately, since those packages together pull in several hundred megabytes of model weights that exceed Vercel's serverless function size limit. But it still runs real retrieval-augmented generation, not a stand-in: `demo_runtime.py` gets the same two model calls (embed the question, generate the answer) from Google's Gemini API instead of loading the models locally, so the deployed function stays small while doing genuine RAG.
+Live at **[clinical-rag-mimic-ecvl.vercel.app](https://clinical-rag-mimic-ecvl.vercel.app/)**.
+
+The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/FLAN-T5 in-process the way the local pipeline does. `requirements.txt` (the public runtime's dependency list) is small deliberately, since those packages together pull in several hundred megabytes of model weights that exceed Vercel's serverless function size limit. But it still runs real retrieval-augmented generation, not a stand-in: `demo_runtime.py` gets the same two model calls (embed the question, generate the answer) from Google's Gemini API instead of loading the models locally, so the deployed function stays small while doing genuine RAG.
 
 Concretely, `demo_runtime.py`:
 - Embeds the incoming question via Gemini's `gemini-embedding-001` and matches it against `outputs_demo/gemini_chunk_embeddings.pkl`, precomputed embeddings for the exact same 101 chunks (`outputs_demo/chunks_data.pkl`) the local pipeline retrieves against, re-ranked with the same header-relevance boost `retrieval.py` uses for the real dataset.
 - Generates the answer with Gemini (`gemini-flash-lite-latest`, a separate model from `GEMINI_MODEL`) from the retrieved passages, using the same system prompt as the local FLAN-T5 pipeline. This is deliberately not the same model the local app uses for routing/reflection: that model's free tier caps `generateContent` at only 20 requests/day, discovered by hitting that exact limit during development, which is nowhere near enough for a public demo answering anonymous visitors. `gemini-flash-lite-latest`'s free tier (roughly 1,000-1,500 requests/day) is sized for that instead, on a completely separate quota.
 - Runs that generated answer through the same local faithfulness check (`agent/reflection.py`'s content-word/numeric overlap check) the local pipeline uses, with one retry if it fails, before ever showing it.
-- Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout) -- the app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
+- Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout). The app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
 
 `python -m scripts.evaluate_public_demo` runs the same 10-question keyword-hit check against this pipeline. Its result is reported as a raw count, not a percentage, and deliberately not placed in the accuracy table above: a bare "100%" sitting next to the real dataset's 70% and the local synthetic demo's 80% would misleadingly read as "the deployed demo beats the real research pipeline," when all three numbers are actually the same small 10-question smoke test, not a benchmark that scales to general reliability.
 
@@ -187,10 +200,11 @@ clinical-rag-mimic/
 │   ├── build_demo_gemini_embeddings.py # Precomputes Gemini embeddings for demo_runtime.py
 │   ├── evaluate_demo.py              # Same keyword-hit evaluation as evaluation.py, for the demo index
 │   ├── evaluate_public_demo.py       # Same evaluation, run against demo_runtime.py directly
+│   ├── build_demo_chart_inputs.py    # Builds the cached inputs regenerate_ui_charts.py reads
 │   └── regenerate_ui_charts.py       # Regenerates ignored OUTPUT_DIR/ui_charts from local caches
 ├── outputs_demo/        # Demo FAISS index, chunk store, Gemini embeddings -- synthetic, safe to commit
-├── static/              # CSS, JS, fonts, and project-created brand assets
-├── templates/           # Flask HTML templates
+├── static/              # CSS, JS, fonts, images, and project-created brand assets
+├── templates/           # Flask HTML templates (index.html holds both the case study and the workspace)
 └── tests/               # pytest unit tests + Playwright browser tests
 ```
 
