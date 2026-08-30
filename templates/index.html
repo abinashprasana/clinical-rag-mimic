@@ -174,7 +174,10 @@
                 <section class="assurance-strip" aria-label="Core system facts">
                     <div>
                         <span>Dataset</span>
-                        <strong title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{{ dataset_version | default('MIMIC-IV-Note v2.2') }}</strong>
+                        {# The public runtime's DATASET_LABEL is a full disclosure sentence, too
+                           long for a stat cell. The short name shows here; the full text stays
+                           in the tooltip, the caption below, and the dataset cards above. #}
+                        <strong title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{% if public_demo %}Synthetic demo{% else %}{{ dataset_version | default('MIMIC-IV-Note v2.2') }}{% endif %}</strong>
                         <small>{% if public_demo %}Fabricated notes, no patient data{% else %}De-identified discharge notes{% endif %}</small>
                     </div>
                     <div>

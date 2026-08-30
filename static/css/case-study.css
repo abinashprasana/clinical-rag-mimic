@@ -796,8 +796,19 @@
     border-bottom: 1px solid var(--case-line);
 }
 
+/* Column layout with the caption pinned to the bottom, so captions stay on a
+   common baseline even when one cell's value wraps to more lines than the
+   others (the public runtime's dataset and accuracy labels are far longer
+   than the local ones). */
 .landing .assurance-strip > div {
+    display: flex;
+    flex-direction: column;
     padding: 30px 26px 32px 0;
+}
+
+.landing .assurance-strip small {
+    margin-top: auto;
+    padding-top: 10px;
 }
 
 .landing .assurance-strip > div + div {
@@ -810,10 +821,17 @@
     color: var(--case-muted);
 }
 
+/* Wrap rather than truncate. app.css clips these with nowrap + ellipsis,
+   which silently cut the public runtime's dataset and accuracy values mid
+   word. Nothing here is decoration, so it should stay readable in full. */
 .landing .assurance-strip strong {
     margin-top: 12px;
+    overflow: visible;
     color: var(--case-text);
     font-size: clamp(15px, 1.5vw, 20px);
+    line-height: 1.32;
+    text-overflow: clip;
+    white-space: normal;
 }
 
 .landing .results-figure {
