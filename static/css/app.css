@@ -183,6 +183,11 @@ h4 {
         var(--ink);
 }
 
+.app-shell[hidden],
+.landing[hidden] {
+    display: none;
+}
+
 .app-bar {
     position: relative;
     z-index: 30;
@@ -1356,7 +1361,8 @@ h4 {
     z-index: 1;
 }
 
-.overview-watermark {
+.overview-watermark,
+.landing-watermark {
     position: absolute;
     z-index: 0;
     top: -78px;
@@ -1385,6 +1391,102 @@ h4 {
     line-height: 1.7;
 }
 
+.dataset-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin: 30px 0 22px;
+}
+
+.dataset-card {
+    padding: 20px 22px 22px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: linear-gradient(160deg, var(--surface-2), var(--surface-1));
+    box-shadow: var(--shadow-soft);
+    transition: border-color var(--element-duration) var(--ease-out), transform var(--element-duration) var(--ease-out);
+}
+
+@media (hover: hover) {
+    .dataset-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-3px);
+    }
+}
+
+.dataset-tag {
+    display: inline-block;
+    color: var(--accent);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.dataset-card h3 {
+    margin-top: 9px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.dataset-card p {
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.dataset-why {
+    max-width: 710px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.68;
+}
+
+.live-status {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    max-width: 710px;
+    margin: 20px 0 30px;
+    padding: 15px 18px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
+}
+
+.live-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .live-dot {
+        animation: live-dot-pulse 2.4s var(--ease-out) infinite;
+    }
+}
+
+@keyframes live-dot-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft); }
+    50% { box-shadow: 0 0 0 6px var(--accent-soft); }
+}
+
+.live-status p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.live-status strong {
+    color: var(--text);
+    font-weight: 500;
+}
+
 .assurance-strip {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1399,6 +1501,17 @@ h4 {
 .assurance-strip > div + div {
     padding-left: 22px;
     border-left: 1px solid var(--line);
+}
+
+@media (hover: hover) {
+    .landing .assurance-strip > div {
+        border-radius: var(--radius-sm);
+        transition: background var(--element-duration) var(--ease-out);
+    }
+
+    .landing .assurance-strip > div:hover {
+        background: var(--accent-soft);
+    }
 }
 
 .assurance-strip span,
@@ -1428,6 +1541,58 @@ h4 {
     margin-top: 5px;
     color: var(--text-muted);
     font-size: 11px;
+}
+
+.dataset-results {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 26px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line-strong);
+}
+
+.dataset-result {
+    min-width: 0;
+    padding: 0 22px 0 0;
+}
+
+.dataset-result + .dataset-result {
+    padding-left: 22px;
+    border-left: 1px solid var(--line);
+}
+
+.dataset-result span,
+.dataset-result small {
+    display: block;
+}
+
+.dataset-result span {
+    color: var(--text-muted);
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.dataset-result strong {
+    display: block;
+    margin-top: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 17px;
+    font-weight: 400;
+}
+
+.dataset-result small {
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.dataset-results-note {
+    max-width: 710px;
+    margin-top: 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.65;
 }
 
 .overview-section {
@@ -1487,6 +1652,30 @@ h4 {
 .architecture-flow[data-reveal] li:nth-child(4) { transition-delay: 120ms; }
 .architecture-flow[data-reveal] li:nth-child(5) { transition-delay: 160ms; }
 
+/* Generic version of the same reveal pattern, for any other [data-reveal]
+   container (the landing sections) whose direct children should stagger-fade
+   in on scroll. .architecture-flow keeps its own more specific rules above
+   unaffected by this. */
+[data-reveal] > * {
+    transition:
+        opacity var(--view-duration) var(--ease-out),
+        transform var(--view-duration) var(--ease-out);
+}
+
+[data-reveal][data-reveal-state="pending"] > * {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+[data-reveal][data-reveal-state="revealed"] > * {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+[data-reveal] > *:nth-child(2) { transition-delay: 40ms; }
+[data-reveal] > *:nth-child(3) { transition-delay: 80ms; }
+[data-reveal] > *:nth-child(4) { transition-delay: 120ms; }
+
 .architecture-flow li + li {
     padding-left: 19px;
     border-left: 1px solid var(--line);
@@ -1536,6 +1725,248 @@ h4 {
 
 .section-heading-split > p:last-child {
     margin-top: 0;
+}
+
+/* ---- Landing page (sits above .app-shell, entry point before the demo) ---- */
+
+.landing {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    background:
+        radial-gradient(circle at 16% 8%, rgba(98, 199, 208, 0.045), transparent 27rem),
+        var(--ink);
+}
+
+.app-shell.is-entering {
+    animation: view-enter var(--view-duration) var(--ease-out) both;
+}
+
+.landing-container,
+.overview-container {
+    width: min(1280px, calc(100% - 64px));
+    margin: 0 auto;
+    padding: 76px 0 34px;
+}
+
+.landing-hero {
+    position: relative;
+    isolation: isolate;
+    padding-bottom: 44px;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.landing-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -140px -80px auto -80px;
+    height: 440px;
+    background: radial-gradient(circle, rgba(98, 199, 208, 0.12), transparent 65%);
+    filter: blur(6px);
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .landing-hero::before {
+        animation: hero-glow-drift 16s var(--ease-out) infinite alternate;
+    }
+}
+
+@keyframes hero-glow-drift {
+    from { transform: translate(-3%, -2%) scale(1); }
+    to { transform: translate(3%, 2%) scale(1.1); }
+}
+
+.landing-mark {
+    display: block;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 20px;
+    overflow: visible;
+}
+
+.landing-hero .eyebrow {
+    margin-bottom: 16px;
+}
+
+.landing-hero h1 {
+    max-width: 18ch;
+    font-size: clamp(40px, 5.4vw, 70px);
+    letter-spacing: -0.045em;
+}
+
+.landing-lead {
+    max-width: 62ch;
+    margin-top: 22px;
+    color: var(--text-secondary);
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+.landing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 34px;
+}
+
+.button-primary {
+    padding: 0 18px;
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+@media (hover: hover) {
+    .button-primary:hover {
+        background: var(--accent-strong);
+    }
+}
+
+.landing-story p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.75;
+}
+
+/* Pipeline diagram (landing page "How it works" teaser): a staggered card
+   cascade rather than a true 3D transform. An earlier version used
+   perspective + rotateX + translateZ for a genuine isometric tilt, but that
+   produced an unresolved compositing artifact (a stray line) in testing.
+   This gets the same "more dimensional than a flat list" effect through
+   plain 2D offsets and layered shadows, which render reliably everywhere. */
+.pipeline-diagram {
+    margin: 46px 0 0;
+}
+
+.pipeline-stack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr) 34px minmax(0, 1fr);
+    align-items: center;
+    margin: 0;
+    padding: 30px 12px;
+    list-style: none;
+}
+
+.pipeline-stage {
+    position: relative;
+    padding: 22px 20px 24px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: linear-gradient(160deg, var(--surface-2), var(--surface-1));
+    box-shadow: var(--shadow-soft);
+    transition: transform var(--element-duration) var(--ease-out), border-color var(--element-duration) var(--ease-out), box-shadow var(--element-duration) var(--ease-out);
+}
+
+.pipeline-stage:nth-child(1) { transform: rotate(-1.5deg); }
+.pipeline-stage:nth-child(3) { transform: translateY(-10px) rotate(1deg); }
+.pipeline-stage:nth-child(5) { transform: rotate(-1deg); }
+
+@media (hover: hover) {
+    .pipeline-stage:nth-child(1):hover { transform: rotate(-1.5deg) translateY(-6px); }
+    .pipeline-stage:nth-child(3):hover { transform: translateY(-16px) rotate(1deg); }
+    .pipeline-stage:nth-child(5):hover { transform: rotate(-1deg) translateY(-6px); }
+    .pipeline-stage:hover {
+        border-color: var(--accent);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--accent-soft);
+    }
+}
+
+.pipeline-index {
+    display: inline-block;
+    margin-bottom: 10px;
+    color: var(--accent);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+.pipeline-stage h3 {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.pipeline-stage p {
+    margin-top: 9px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.62;
+}
+
+.pipeline-connector {
+    position: relative;
+    height: 1px;
+    background: var(--line-strong);
+}
+
+.pipeline-connector::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -1px;
+    width: 6px;
+    height: 6px;
+    border-top: 1px solid var(--accent);
+    border-right: 1px solid var(--accent);
+    transform: translateY(-50%) rotate(45deg);
+}
+
+@media (max-width: 900px) {
+    .pipeline-stack {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+        padding: 24px 0;
+        transform: none;
+    }
+
+    .pipeline-stage {
+        transform: none !important;
+    }
+
+    .pipeline-connector {
+        width: 1px;
+        height: 20px;
+        margin: 0 auto;
+    }
+
+    .pipeline-connector::after {
+        top: auto;
+        right: 50%;
+        bottom: -1px;
+        transform: translateX(50%) rotate(135deg);
+    }
+}
+
+.landing-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 48px 0 0;
+}
+
+.landing-footer p {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.landing-footer .landing-actions {
+    margin-top: 0;
+}
+
+@media (max-width: 760px) {
+    .landing-container {
+        padding: 56px 0 28px;
+    }
+
+    .landing-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 
 .primary-figures {
@@ -1588,6 +2019,10 @@ h4 {
     gap: 36px;
 }
 
+.section-heading + .boundary-columns {
+    margin-top: 30px;
+}
+
 .boundary-columns h3 {
     padding-bottom: 14px;
     border-bottom: 1px solid var(--line);
@@ -1603,6 +2038,20 @@ h4 {
     color: var(--text-muted);
     font-size: 13px;
     line-height: 1.62;
+}
+
+@media (hover: hover) {
+    .landing .boundary-columns li {
+        padding: 4px 8px 4px 6px;
+        margin-left: -14px;
+        border-radius: var(--radius-sm);
+        transition: background var(--element-duration) var(--ease-out), color var(--element-duration) var(--ease-out);
+    }
+
+    .landing .boundary-columns li:hover {
+        background: var(--surface-2);
+        color: var(--text-secondary);
+    }
 }
 
 .boundary-columns li::marker {
@@ -1849,11 +2298,11 @@ h4 {
     }
 
     .brand-descriptor,
-    .button-secondary > span:not(.button-icon) {
+    .app-actions .button-secondary > span:not(.button-icon) {
         display: none;
     }
 
-    .button-secondary {
+    .app-actions .button-secondary {
         width: 44px;
         padding: 0;
     }
@@ -1901,7 +2350,8 @@ h4 {
         font-size: 42px;
     }
 
-    .overview-watermark {
+    .overview-watermark,
+    .landing-watermark {
         top: -42px;
         right: -62px;
         width: 240px;
@@ -1928,8 +2378,17 @@ h4 {
 
     .primary-figures,
     .appendix-grid,
-    .boundary-columns {
+    .boundary-columns,
+    .dataset-pair,
+    .dataset-results {
         grid-template-columns: 1fr;
+    }
+
+    .dataset-result + .dataset-result {
+        padding-top: 16px;
+        padding-left: 0;
+        border-top: 1px solid var(--line);
+        border-left: 0;
     }
 
     .analysis-appendix > summary {
@@ -2044,7 +2503,8 @@ h4 {
         font-size: 36px;
     }
 
-    .overview-watermark {
+    .overview-watermark,
+    .landing-watermark {
         top: -24px;
         right: -82px;
         width: 210px;
@@ -2090,7 +2550,7 @@ h4 {
         height: 28px;
     }
 
-    .button-secondary {
+    .app-actions .button-secondary {
         width: 44px;
         min-height: 44px;
     }
@@ -2118,11 +2578,23 @@ h4 {
 
     .architecture-flow[data-reveal] li,
     .architecture-flow[data-reveal][data-reveal-state="pending"] li,
-    .architecture-flow[data-reveal][data-reveal-state="revealed"] li {
+    .architecture-flow[data-reveal][data-reveal-state="revealed"] li,
+    [data-reveal] > *,
+    [data-reveal][data-reveal-state="pending"] > *,
+    [data-reveal][data-reveal-state="revealed"] > * {
         opacity: 1;
         transform: none;
         transition-duration: 1ms;
         transition-delay: 0ms;
+    }
+
+    .pipeline-stack {
+        transform: none;
+    }
+
+    .pipeline-stage {
+        transform: none !important;
+        transition-duration: 1ms;
     }
 
     .skip-link,
@@ -2134,6 +2606,7 @@ h4 {
     }
 
     .view-panel.is-entering,
+    .app-shell.is-entering,
     .message,
     .inspector-content,
     .evidence-detail,

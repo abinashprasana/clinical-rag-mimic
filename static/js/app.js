@@ -38,7 +38,6 @@
         appendix: document.getElementById("analysis-appendix"),
         appendixAction: document.querySelector(".summary-action"),
         canvas: document.getElementById("evidence-canvas"),
-        architectureFlow: document.querySelector(".architecture-flow[data-reveal]"),
     };
 
     const mobileEvidence = window.matchMedia(MOBILE_EVIDENCE_QUERY);
@@ -1088,34 +1087,76 @@
         }
     }
 
-    function setupArchitectureReveal() {
-        const flow = elements.architectureFlow;
-        if (!flow) return;
-
+    function setupReveal(el) {
         let observer = null;
         let revealed = false;
         const reveal = () => {
             if (revealed) return;
             revealed = true;
-            flow.dataset.revealState = "revealed";
+            el.dataset.revealState = "revealed";
             if (observer) observer.disconnect();
         };
 
         if (reducedMotion.matches || typeof IntersectionObserver !== "function") {
             reveal();
         } else {
-            flow.dataset.revealState = "pending";
+            el.dataset.revealState = "pending";
             observer = new IntersectionObserver((entries) => {
                 if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.2)) {
                     reveal();
                 }
             }, { threshold: [0.2] });
-            observer.observe(flow);
+            observer.observe(el);
         }
 
         reducedMotion.addEventListener("change", () => {
             if (reducedMotion.matches) reveal();
         }, { once: true });
+    }
+
+    function setupScrollReveals() {
+        document.querySelectorAll("[data-reveal]").forEach(setupReveal);
+    }
+
+    function enterApp() {
+        const landing = document.getElementById("landing");
+        const shell = document.getElementById("app-shell");
+        if (!shell || shell.hidden === false || shell.dataset.entering === "true") return;
+
+        shell.dataset.entering = "true";
+        if (landing) {
+            landing.inert = true;
+            landing.dispatchEvent(new CustomEvent("case-study:deactivate"));
+        }
+
+        const completeEntry = () => {
+            if (landing) landing.hidden = true;
+            shell.hidden = false;
+            shell.removeAttribute("data-entering");
+            shell.classList.remove("is-entering");
+            window.requestAnimationFrame(() => shell.classList.add("is-entering"));
+            window.setTimeout(() => shell.classList.remove("is-entering"), 240);
+
+            const skipLink = document.querySelector(".skip-link");
+            if (skipLink) skipLink.setAttribute("href", "#main-content");
+            evidenceField.setActive(!elements.welcomeState.hidden);
+            if (elements.question) elements.question.focus({ preventScroll: true });
+        };
+
+        if (landing && !reducedMotion.matches) {
+            window.setTimeout(completeEntry, 180);
+        } else {
+            completeEntry();
+        }
+    }
+
+    function setupLandingCta() {
+        document.querySelectorAll("[data-enter-app]").forEach((trigger) => {
+            trigger.addEventListener("click", (event) => {
+                event.preventDefault();
+                enterApp();
+            });
+        });
     }
 
     const evidenceField = new EvidenceField(elements.canvas, reducedMotion, finePointer);
@@ -1171,7 +1212,209 @@
         if (elements.appendix.open) loadImagesWithin(elements.appendix);
     });
 
-    setupArchitectureReveal();
+    setupScrollReveals();
+    setupLandingCta();
     resetEvidenceInspector();
     evidenceField.setActive(true);
+})();
+
+(() => {
+    "use strict";
+
+    const landing = document.getElementById("landing");
+    if (!landing) return;
+
+    const progressBar = landing.querySelector("[data-progress-bar]");
+    const chapterLinks = Array.from(landing.querySelectorAll("[data-section-link]"));
+    const sections = chapterLinks
+        .map((link) => document.getElementById(link.getAttribute("href").slice(1)))
+        .filter(Boolean);
+    const depthScene = landing.querySelector("[data-depth-scene]");
+    const depthStage = depthScene?.querySelector(".evidence-scene__stage") || null;
+    const pipelineStages = Array.from(landing.querySelectorAll("[data-stage]"));
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+    let active = true;
+    let scrollFrame = 0;
+    let depthFrame = 0;
+    let sectionObserver = null;
+    let latestPointer = null;
+    let currentSection = "";
+
+    function setCurrentSection(sectionName) {
+        if (!sectionName || currentSection === sectionName) return;
+        currentSection = sectionName;
+        chapterLinks.forEach((link) => {
+            if (link.dataset.sectionLink === sectionName) {
+                link.setAttribute("aria-current", "location");
+            } else {
+                link.removeAttribute("aria-current");
+            }
+        });
+    }
+
+    function updateProgress() {
+        scrollFrame = 0;
+        if (!active || !progressBar) return;
+
+        const maximum = Math.max(1, landing.scrollHeight - landing.clientHeight);
+        const progress = Math.min(1, Math.max(0, landing.scrollTop / maximum));
+        progressBar.style.transform = `scaleX(${progress.toFixed(4)})`;
+
+        if (!sectionObserver) {
+            const marker = landing.scrollTop + landing.clientHeight * 0.38;
+            const current = sections.reduce((match, section) => {
+                return section.offsetTop <= marker ? section : match;
+            }, sections[0]);
+            if (current) setCurrentSection(current.dataset.caseSection);
+        }
+    }
+
+    function queueProgressUpdate() {
+        if (!active || scrollFrame) return;
+        scrollFrame = window.requestAnimationFrame(updateProgress);
+    }
+
+    function setupSectionObserver() {
+        if (typeof IntersectionObserver !== "function") return;
+
+        sectionObserver = new IntersectionObserver((entries) => {
+            const candidates = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+            const current = candidates[0];
+            if (current) setCurrentSection(current.target.dataset.caseSection);
+        }, {
+            root: landing,
+            rootMargin: "-24% 0px -58% 0px",
+            threshold: [0.01, 0.2, 0.45],
+        });
+
+        sections.forEach((section) => sectionObserver.observe(section));
+    }
+
+    function handleChapterClick(event) {
+        const link = event.currentTarget;
+        const target = document.getElementById(link.getAttribute("href").slice(1));
+        if (!target) return;
+
+        event.preventDefault();
+        target.scrollIntoView({
+            behavior: reducedMotion.matches ? "auto" : "smooth",
+            block: "start",
+        });
+        target.focus({ preventScroll: true });
+        setCurrentSection(target.dataset.caseSection);
+    }
+
+    function resetDepth() {
+        latestPointer = null;
+        if (depthFrame) {
+            window.cancelAnimationFrame(depthFrame);
+            depthFrame = 0;
+        }
+        if (depthStage) depthStage.style.transform = "translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg)";
+    }
+
+    function renderDepth() {
+        depthFrame = 0;
+        if (!active || !depthScene || !depthStage || !latestPointer || reducedMotion.matches || !finePointer.matches) {
+            resetDepth();
+            return;
+        }
+
+        const rect = depthScene.getBoundingClientRect();
+        const x = Math.min(1, Math.max(-1, ((latestPointer.clientX - rect.left) / rect.width - 0.5) * 2));
+        const y = Math.min(1, Math.max(-1, ((latestPointer.clientY - rect.top) / rect.height - 0.5) * 2));
+        depthStage.style.transform = `translate3d(${(x * 6).toFixed(2)}px, ${(y * 4).toFixed(2)}px, 0) rotateX(${(-y * 1.6).toFixed(2)}deg) rotateY(${(x * 2.5).toFixed(2)}deg)`;
+    }
+
+    function handleDepthMove(event) {
+        if (!active || reducedMotion.matches || !finePointer.matches) return;
+        latestPointer = event;
+        if (!depthFrame) depthFrame = window.requestAnimationFrame(renderDepth);
+    }
+
+    function activatePipelineStage(event) {
+        pipelineStages.forEach((stage) => stage.classList.toggle("is-active", stage === event.currentTarget));
+    }
+
+    function clearPipelineStage(event) {
+        if (event.type === "focusout" && event.currentTarget.contains(event.relatedTarget)) return;
+        event.currentTarget.classList.remove("is-active");
+    }
+
+    function handleVisibility() {
+        if (document.hidden) {
+            if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
+            scrollFrame = 0;
+            resetDepth();
+        } else if (active) {
+            queueProgressUpdate();
+        }
+    }
+
+    function handleMotionPreference() {
+        if (reducedMotion.matches) {
+            landing.classList.add("is-ready");
+            resetDepth();
+        }
+    }
+
+    function deactivate() {
+        if (!active) return;
+        active = false;
+        landing.classList.add("is-deactivating");
+        landing.removeEventListener("scroll", queueProgressUpdate);
+        document.removeEventListener("visibilitychange", handleVisibility);
+        reducedMotion.removeEventListener("change", handleMotionPreference);
+        finePointer.removeEventListener("change", resetDepth);
+        chapterLinks.forEach((link) => link.removeEventListener("click", handleChapterClick));
+        pipelineStages.forEach((stage) => {
+            stage.removeEventListener("pointerenter", activatePipelineStage);
+            stage.removeEventListener("pointerleave", clearPipelineStage);
+            stage.removeEventListener("focusin", activatePipelineStage);
+            stage.removeEventListener("focusout", clearPipelineStage);
+        });
+        if (depthScene) {
+            depthScene.removeEventListener("pointermove", handleDepthMove);
+            depthScene.removeEventListener("pointerleave", resetDepth);
+        }
+        if (sectionObserver) sectionObserver.disconnect();
+        if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
+        resetDepth();
+    }
+
+    landing.classList.add("is-enhanced");
+    if (reducedMotion.matches) {
+        landing.classList.add("is-ready");
+    } else {
+        window.requestAnimationFrame(() => {
+            if (active) landing.classList.add("is-ready");
+        });
+    }
+
+    chapterLinks.forEach((link) => link.addEventListener("click", handleChapterClick));
+    pipelineStages.forEach((stage) => {
+        stage.addEventListener("pointerenter", activatePipelineStage);
+        stage.addEventListener("pointerleave", clearPipelineStage);
+        stage.addEventListener("focusin", activatePipelineStage);
+        stage.addEventListener("focusout", clearPipelineStage);
+    });
+
+    if (depthScene) {
+        depthScene.addEventListener("pointermove", handleDepthMove, { passive: true });
+        depthScene.addEventListener("pointerleave", resetDepth, { passive: true });
+    }
+
+    landing.addEventListener("scroll", queueProgressUpdate, { passive: true });
+    landing.addEventListener("case-study:deactivate", deactivate, { once: true });
+    document.addEventListener("visibilitychange", handleVisibility);
+    reducedMotion.addEventListener("change", handleMotionPreference);
+    finePointer.addEventListener("change", resetDepth);
+
+    setupSectionObserver();
+    setCurrentSection(sections[0]?.dataset.caseSection || "story");
+    updateProgress();
 })();

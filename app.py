@@ -164,6 +164,7 @@ def create_app(runtime=LOCAL_RUNTIME):
             retrieval_top_k=config.DEFAULT_TOP_K,
             generator_model=runtime_state['generator_label'],
             public_demo=runtime_state['public_demo'],
+            gemini_enabled=bool(config.GEMINI_API_KEY),
         )
 
     @app.route('/healthz')

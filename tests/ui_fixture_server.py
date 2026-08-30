@@ -28,12 +28,25 @@ def add_security_headers(response):
 
 @app.get('/')
 def index():
+    public_demo = request.args.get('mode', 'local') == 'public'
     return render_template(
         'index.html',
-        accuracy_pct=80,
-        dataset_version='MIMIC-IV-Note v2.2',
+        accuracy_pct=100 if public_demo else 80,
+        accuracy_label='10/10 canonical checks' if public_demo else None,
+        dataset_version=(
+            'Synthetic demo (fabricated notes; no patient data; real '
+            'MIMIC-IV-Note data requires credentialed PhysioNet access)'
+            if public_demo
+            else 'MIMIC-IV-Note v2.2'
+        ),
         retrieval_top_k=5,
-        generator_model='google/flan-t5-base',
+        generator_model=(
+            'gemini-2.5-flash-lite (retrieval-augmented, local fallback)'
+            if public_demo
+            else 'google/flan-t5-base'
+        ),
+        public_demo=public_demo,
+        gemini_enabled=public_demo,
     )
 
 

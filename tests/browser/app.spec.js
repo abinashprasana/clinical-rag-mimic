@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const AxeBuilder = require("@axe-core/playwright").default;
+const { createHash } = require("node:crypto");
 
 const appBaseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:5055";
 const brandAssetPaths = [
@@ -33,6 +34,31 @@ const visualViewports = [
   { name: "1280x720", width: 1280, height: 720 },
   { name: "1440x900", width: 1440, height: 900 },
 ];
+
+const caseStudySections = [
+  { id: "case-story", key: "story", heading: "From a retrieval pipeline to something closer to an agent" },
+  { id: "case-architecture", key: "architecture", heading: "From question to reviewable response" },
+  { id: "case-evidence", key: "evidence", heading: "What's actually running, and what it measures" },
+  { id: "case-boundaries", key: "boundaries", heading: "What it checks, and what it doesn't decide" },
+];
+
+const editorialCopyDigests = {
+  local: "25f29765d69d8e7e5d3ddab24f0206a5fc6279365a470903792e63879e3cdd21",
+  public: "8e40ba963fe6ff6f1286aeb842a3ed3aa79cc9af7905ca43856ca7231c0ad628",
+};
+
+const strictCsp = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "connect-src 'self'",
+  "img-src 'self'",
+  "font-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+].join("; ");
 
 async function installMotionProbe(page) {
   await page.addInitScript(() => {
@@ -102,8 +128,70 @@ function expectDepthWithinCap(offsets) {
   expect(Math.abs(offsets.y)).toBeLessThanOrEqual(3);
 }
 
+async function gotoLanding(page, mode = "local", options = {}) {
+  const response = await page.goto(`/?mode=${mode}`, options);
+  expect(response).not.toBeNull();
+  await expect(page.locator("#landing")).toBeVisible();
+  await expect(page.locator("#app-shell")).toBeHidden();
+  await expect(page.locator("#app-shell")).toHaveAttribute("hidden", "");
+  return response;
+}
+
+async function editorialCopy(page) {
+  const text = await page.locator("#landing").evaluate((landing) => {
+    const clone = landing.cloneNode(true);
+    clone.querySelectorAll([
+      "script",
+      "style",
+      "svg",
+      "canvas",
+      "[aria-hidden=true]",
+      "[data-ui-copy]",
+      "#case-chapters",
+      "#case-progress",
+    ].join(",")).forEach((element) => element.remove());
+    return clone.textContent.split(/\s+/).filter(Boolean).join(" ");
+  });
+  return {
+    digest: createHash("sha256").update(text).digest("hex"),
+    text,
+  };
+}
+
+async function progressVisualSignature(progressBar) {
+  return progressBar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return JSON.stringify({
+      clipPath: style.clipPath,
+      inlineTransform: element.style.transform,
+      inlineWidth: element.style.width,
+      transform: style.transform,
+      width: Math.round(rect.width * 100) / 100,
+    });
+  });
+}
+
+async function gotoApp(page, options) {
+  // The landing page (added in front of the demo) requires clicking through
+  // before the existing app-shell/tabs/chat UI is reachable -- every test
+  // below exercises that existing UI, so navigate through the landing CTA
+  // here once rather than repeating it in every test.
+  await page.goto("/", options);
+  await page.click("[data-enter-app]");
+  await page.locator("#app-shell").waitFor({ state: "visible" });
+  // Let the shell's own entrance animation (see app.js enterApp, 240ms)
+  // settle before any test measures layout shift, so the landing-to-app
+  // transition itself (a real, expected shift) isn't confused with a
+  // regression in unrelated animations the test actually cares about.
+  await page.waitForTimeout(280);
+  await page.evaluate(() => {
+    if (window.__layoutShiftTotal !== undefined) window.__layoutShiftTotal = 0;
+  });
+}
+
 async function scrollFlowToRatio(page, ratio) {
-  await page.locator(".architecture-flow[data-reveal]").evaluate((flow, visibleRatio) => {
+  await page.locator("#overview-panel .architecture-flow[data-reveal]").evaluate((flow, visibleRatio) => {
     const scroller = flow.closest(".overview-scroll");
     const scrollerRect = scroller.getBoundingClientRect();
     const flowRect = flow.getBoundingClientRect();
@@ -113,6 +201,259 @@ async function scrollFlowToRatio(page, ratio) {
   }, ratio);
 }
 
+test("case study opens with locked semantics, content, and accessible structure", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await gotoLanding(page);
+
+  const landing = page.locator("#landing");
+  expect(await landing.getAttribute("role")).toBeNull();
+  expect(await landing.getAttribute("aria-label")).toBeNull();
+  await expect(page.locator("main#landing-main")).toHaveCount(1);
+  await expect(landing.getByRole("heading", {
+    level: 1,
+    name: "Evidence-grounded answers, built as an agent",
+    exact: true,
+  })).toHaveCount(1);
+
+  for (const section of caseStudySections) {
+    const sectionLocator = page.locator(`#${section.id}`);
+    await expect(sectionLocator).toHaveCount(1);
+    await expect(sectionLocator).toHaveAttribute("data-case-section", section.key);
+    await expect(sectionLocator.getByRole("heading", {
+      level: 2,
+      name: section.heading,
+      exact: true,
+    })).toHaveCount(1);
+  }
+
+  await expect(page.locator("[data-depth-scene]")).toHaveCount(1);
+  await expect(page.locator('#case-architecture [data-viz="architecture"]')).toHaveCount(1);
+  await expect(page.locator('#case-evidence [data-viz="results"]')).toHaveCount(1);
+  await expect(page.locator('#case-boundaries [data-viz="boundaries"]')).toHaveCount(1);
+
+  const enterLinks = landing.locator("[data-enter-app]");
+  await expect(enterLinks).toHaveCount(2);
+  for (const enterLink of await enterLinks.all()) {
+    await expect(enterLink).toHaveAttribute("href", "#assistant-panel");
+  }
+  const sourceLinks = landing.getByRole("link", { name: /^View source on GitHub/ });
+  await expect(sourceLinks).toHaveCount(2);
+  for (const sourceLink of await sourceLinks.all()) {
+    await expect(sourceLink).toHaveAttribute("href", "https://github.com/abinashprasana/clinical-rag-mimic");
+    await expect(sourceLink).toHaveAttribute("target", "_blank");
+    await expect(sourceLink).toHaveAttribute("rel", /\bnoopener\b/);
+    await expect(sourceLink).toHaveAttribute("rel", /\bnoreferrer\b/);
+  }
+
+  const results = await new AxeBuilder({ page }).include("#landing").analyze();
+  expect(results.violations).toEqual([]);
+});
+
+for (const mode of ["local", "public"]) {
+  test(`case-study editorial copy stays unchanged in ${mode} mode`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoLanding(page, mode);
+
+    await expect(page.locator("body")).toHaveAttribute("data-public-demo", String(mode === "public"));
+    const copy = await editorialCopy(page);
+    expect(
+      copy.digest,
+      `Editorial copy changed in ${mode} mode. Current normalized copy:\n${copy.text}`,
+    ).toBe(editorialCopyDigests[mode]);
+
+    const evidence = page.locator("#case-evidence");
+    if (mode === "public") {
+      await expect(evidence.getByText("10/10 canonical checks", { exact: true })).toHaveCount(1);
+      await expect(evidence.getByText("Fabricated notes, no patient data", { exact: true })).toHaveCount(1);
+      await expect(evidence.getByText("De-identified discharge notes", { exact: true })).toHaveCount(0);
+    } else {
+      await expect(evidence.getByText("De-identified discharge notes", { exact: true })).toHaveCount(1);
+      await expect(evidence.getByText("10/10 canonical checks", { exact: true })).toHaveCount(0);
+    }
+  });
+}
+
+test("chapter navigation targets every case-study section and advances progress", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await gotoLanding(page);
+
+  const nav = page.locator("#case-chapters");
+  const links = nav.locator("a");
+  await expect(nav).toHaveCount(1);
+  await expect(links).toHaveCount(caseStudySections.length);
+  expect(await links.evaluateAll((items) => items.map((item) => item.getAttribute("href")))).toEqual(
+    caseStudySections.map((section) => `#${section.id}`),
+  );
+
+  const progress = page.locator("#case-progress");
+  const progressBar = progress.locator("[data-progress-bar]");
+  await expect(progress).toHaveCount(1);
+  await expect(progressBar).toHaveCount(1);
+
+  await links.first().click();
+  await expect(links.first()).toHaveAttribute("aria-current", "location");
+  await expect(page.locator("#case-story")).toBeInViewport({ ratio: 0.05 });
+  const earlyProgress = await progressVisualSignature(progressBar);
+
+  for (let index = 1; index < caseStudySections.length; index += 1) {
+    const link = links.nth(index);
+    await link.click();
+    await expect(link).toHaveAttribute("aria-current", "location");
+    await expect(nav.locator('a[aria-current="location"]')).toHaveCount(1);
+    await expect(page.locator(`#${caseStudySections[index].id}`)).toBeInViewport({ ratio: 0.05 });
+  }
+
+  await expect.poll(() => progressVisualSignature(progressBar)).not.toBe(earlyProgress);
+});
+
+test("case-study resources stay self-hosted under the strict CSP", async ({ page }) => {
+  const remoteRequests = [];
+  const runtimeErrors = [];
+  page.on("request", (request) => {
+    const requestUrl = new URL(request.url());
+    if (["http:", "https:"].includes(requestUrl.protocol)
+        && requestUrl.origin !== new URL(appBaseUrl).origin) {
+      remoteRequests.push(request.url());
+    }
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error") runtimeErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
+
+  const response = await gotoLanding(page, "public", { waitUntil: "networkidle" });
+  expect(response.headers()["content-security-policy"]).toBe(strictCsp);
+  await page.locator("#landing").evaluate((landing) => {
+    landing.scrollTop = landing.scrollHeight;
+  });
+  await page.waitForTimeout(300);
+
+  const resourceOrigins = await page.evaluate(() => performance.getEntriesByType("resource")
+    .map((entry) => new URL(entry.name).origin));
+  expect(resourceOrigins.every((origin) => origin === new URL(appBaseUrl).origin)).toBe(true);
+  expect(remoteRequests).toEqual([]);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("reduced motion keeps case-study reveals and depth effects static", async ({ page }) => {
+  await installMotionProbe(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await gotoLanding(page);
+  expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true);
+
+  const revealStates = await page.locator("#landing [data-reveal]").evaluateAll((elements) => elements.map((element) => ({
+    opacity: getComputedStyle(element).opacity,
+    state: element.dataset.revealState,
+  })));
+  expect(revealStates.length).toBeGreaterThan(0);
+  expect(revealStates.every((item) => item.state === "revealed" && item.opacity === "1")).toBe(true);
+
+  const scene = page.locator("[data-depth-scene]");
+  const beforeTransform = await scene.evaluate((element) => getComputedStyle(element).transform);
+  const box = await scene.boundingBox();
+  await page.mouse.move(box.x + box.width - 2, box.y + 2);
+  await page.waitForTimeout(150);
+  expect(await scene.evaluate((element) => getComputedStyle(element).transform)).toBe(beforeTransform);
+
+  const runningAnimations = await page.locator("#landing").evaluate((landing) => (
+    landing.getAnimations({ subtree: true })
+      .filter((animation) => animation.playState === "running")
+      .map((animation) => animation.animationName || "anonymous")
+  ));
+  expect(runningAnimations).toEqual([]);
+
+  const settledProbe = await page.evaluate(() => ({ ...window.__motionProbe }));
+  await page.waitForTimeout(350);
+  const idleProbe = await page.evaluate(() => ({ ...window.__motionProbe }));
+  expect(idleProbe.pending).toBe(0);
+  expect(idleProbe.scheduled).toBe(settledProbe.scheduled);
+});
+
+test("case study remains readable and navigable when JavaScript is disabled", async ({ browser }) => {
+  const context = await browser.newContext({
+    baseURL: appBaseUrl,
+    javaScriptEnabled: false,
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto("/?mode=public", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#landing")).toBeVisible();
+    await expect(page.locator("#app-shell")).toBeHidden();
+    await expect(page.getByRole("heading", {
+      level: 1,
+      name: "Evidence-grounded answers, built as an agent",
+      exact: true,
+    })).toBeVisible();
+    for (const section of caseStudySections) {
+      await expect(page.locator(`#${section.id}`).getByRole("heading", {
+        level: 2,
+        name: section.heading,
+        exact: true,
+      })).toBeVisible();
+    }
+
+    const architectureLink = page.locator('#case-chapters a[href="#case-architecture"]');
+    await architectureLink.click();
+    await expect(page).toHaveURL(/#case-architecture$/);
+    await expect(page.locator("#case-architecture")).toBeInViewport({ ratio: 0.05 });
+  } finally {
+    await context.close();
+  }
+});
+
+test("skip link and CTA enter the app without a reload and preserve focus", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await gotoLanding(page);
+
+  const skipLink = page.getByRole("link", { name: "Skip to main content", exact: true });
+  await expect(skipLink).toHaveAttribute("href", "#landing-main");
+  await skipLink.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#landing-main")).toBeFocused();
+
+  const navigationCount = await page.evaluate(() => performance.getEntriesByType("navigation").length);
+  await page.locator("[data-enter-app]").first().click();
+  await expect(page.locator("#landing")).toBeHidden();
+  await expect(page.locator("#app-shell")).toBeVisible();
+  await expect(page.locator("#app-shell")).not.toHaveAttribute("hidden", "");
+  await expect(page.getByLabel("Ask a clinical question")).toBeFocused();
+  await expect(skipLink).toHaveAttribute("href", "#main-content");
+  expect(await page.evaluate(() => performance.getEntriesByType("navigation").length)).toBe(navigationCount);
+});
+
+test("case study contains its layout without horizontal page overflow", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const viewport of visualViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await gotoLanding(page);
+    const geometry = await page.evaluate(() => {
+      const landing = document.querySelector("#landing");
+      const landingBox = landing.getBoundingClientRect();
+      const sectionsFit = Array.from(document.querySelectorAll("[data-case-section]"))
+        .every((section) => {
+          const box = section.getBoundingClientRect();
+          return box.left >= landingBox.left - 1 && box.right <= landingBox.right + 1;
+        });
+      return {
+        documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        sectionsFit,
+      };
+    });
+    expect(geometry.documentOverflow, `${viewport.name} should not overflow horizontally`).toBeLessThanOrEqual(1);
+    expect(geometry.sectionsFit, `${viewport.name} case-study sections should fit the viewport`).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoLanding(page);
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+  });
+  expect(await page.evaluate(() => (
+    document.documentElement.scrollWidth - document.documentElement.clientWidth
+  ))).toBeLessThanOrEqual(1);
+});
+
 test("Evidence Aperture has one accessible brand name and deployable SVG assets", async ({ page }) => {
   const runtimeErrors = [];
   page.on("console", (message) => {
@@ -120,7 +461,7 @@ test("Evidence Aperture has one accessible brand name and deployable SVG assets"
   });
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
   await installMotionProbe(page);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await gotoApp(page, { waitUntil: "domcontentloaded" });
 
   const brandHome = page.getByRole("link", { name: "Clinical Evidence Assistant home", exact: true });
   const mark = page.locator("#brand-mark");
@@ -309,7 +650,7 @@ test("Evidence Aperture has one accessible brand name and deployable SVG assets"
 
 test("Evidence Aperture remains visible in forced colors", async ({ page }) => {
   await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-  await page.goto("/");
+  await gotoApp(page);
 
   const mark = page.locator("#brand-mark");
   await expect(mark).toBeVisible();
@@ -327,7 +668,7 @@ test("Evidence Aperture remains visible in forced colors", async ({ page }) => {
 });
 
 test("initial workspace is keyboard-operable and axe-clean", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
   await expect(page.getByRole("heading", { name: "Trace every answer back to its source" })).toBeVisible();
 
   const assistantTab = page.getByRole("tab", { name: "Clinical Assistant" });
@@ -345,7 +686,7 @@ test("initial workspace is keyboard-operable and axe-clean", async ({ page }) =>
 
 test("answer exposes one selected passage and returns focus from mobile sheet", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByLabel("Ask a clinical question").fill("What discharge diagnoses are documented?");
   await page.getByRole("button", { name: "Send" }).click();
 
@@ -369,7 +710,7 @@ test("loading uses an honest indeterminate state and blocks double submission", 
     await new Promise((resolve) => setTimeout(resolve, 1200));
     await route.continue();
   });
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByLabel("Ask a clinical question").fill("What medications were prescribed at discharge?");
   await page.getByRole("button", { name: "Send" }).click();
 
@@ -382,7 +723,7 @@ test("loading uses an honest indeterminate state and blocks double submission", 
 
 test("Evidence Field completes once and uses capped depth only for fine pointers", async ({ page }) => {
   await installMotionProbe(page);
-  await page.goto("/");
+  await gotoApp(page);
 
   const canvas = page.locator("#evidence-canvas");
   await expect(canvas).toBeVisible();
@@ -423,7 +764,7 @@ test("coarse pointers cannot activate Evidence Field depth", async ({ browser })
   });
     const page = await context.newPage();
     try {
-      await page.goto("/");
+      await gotoApp(page);
       const canvas = page.locator("#evidence-canvas");
       expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
       await expect(canvas).toHaveAttribute("data-depth-enabled", "false");
@@ -444,7 +785,7 @@ test("coarse pointers cannot activate Evidence Field depth", async ({ browser })
 test("reduced motion renders all identity graphics in their final static state", async ({ page }) => {
   await installMotionProbe(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await gotoApp(page);
   expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true);
 
   const mark = page.locator("#brand-mark");
@@ -469,7 +810,7 @@ test("reduced motion renders all identity graphics in their final static state",
 
   await page.getByRole("tab", { name: "System Overview" }).click();
   await expect(page.getByRole("heading", { name: "Understand the evidence path and its limits" })).toBeVisible();
-  const flow = page.locator(".architecture-flow[data-reveal]");
+  const flow = page.locator("#overview-panel .architecture-flow[data-reveal]");
   await scrollFlowToRatio(page, 0.4);
   await expect(flow).toHaveAttribute("data-reveal-state", "revealed");
   const stageStyles = await flow.locator("li").evaluateAll((stages) => stages.map((stage) => ({
@@ -485,10 +826,10 @@ test("reduced motion renders all identity graphics in their final static state",
 
 test("architecture trace reveals at 20 percent visibility and does not replay", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 500 });
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByRole("tab", { name: "System Overview" }).click();
 
-  const flow = page.locator(".architecture-flow[data-reveal]");
+  const flow = page.locator("#overview-panel .architecture-flow[data-reveal]");
   await expect(flow).toHaveAttribute("data-reveal-state", "pending");
   await scrollFlowToRatio(page, 0.1);
   await page.waitForTimeout(120);
@@ -536,11 +877,11 @@ test("identity and overview refinements make no remote requests", async ({ page 
     }
   });
 
-  await page.goto("/");
+  await gotoApp(page);
   await expect(page.locator("#evidence-canvas")).toHaveAttribute("data-animation-state", "static", { timeout: 2500 });
   await page.getByRole("tab", { name: "System Overview" }).click();
   await scrollFlowToRatio(page, 0.45);
-  await expect(page.locator(".architecture-flow[data-reveal]")).toHaveAttribute("data-reveal-state", "revealed");
+  await expect(page.locator("#overview-panel .architecture-flow[data-reveal]")).toHaveAttribute("data-reveal-state", "revealed");
   await page.getByRole("tab", { name: "Clinical Assistant" }).click();
   await page.getByLabel("Ask a clinical question").fill("What discharge diagnoses are documented?");
   await page.getByRole("button", { name: "Send" }).click();
@@ -571,7 +912,7 @@ test("long local processing produces one stable announcement", async ({ page }) 
     });
   });
 
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByLabel("Ask a clinical question").fill("What is documented at discharge?");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByRole("status")).toContainText("Processing locally");
@@ -589,7 +930,7 @@ test("long local processing produces one stable announcement", async ({ page }) 
 
 test("layout has no horizontal overflow at 200 percent text size", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await gotoApp(page);
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
   });
@@ -598,7 +939,7 @@ test("layout has no horizontal overflow at 200 percent text size", async ({ page
 });
 
 test("clarification, FDA, support-gap, and server-error states remain distinct", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page);
 
   const ask = async (question, selector) => {
     await page.getByLabel("Ask a clinical question").fill(question);
@@ -628,7 +969,7 @@ test("clarification, FDA, support-gap, and server-error states remain distinct",
 
 test("network failure and long answers with missing metadata remain contained", async ({ page }) => {
   await page.route("**/ask", (route) => route.abort("failed"));
-  await page.goto("/");
+  await gotoApp(page);
   await page.getByLabel("Ask a clinical question").fill("What is documented?");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByRole("alert")).toContainText("Unable to reach the local service");
@@ -661,12 +1002,14 @@ test("full loads and repeated resets create isolated client thread IDs", async (
     await expect(page.locator(".assistant-message")).toHaveCount(1);
   };
 
-  await page.goto("/");
+  await gotoApp(page);
   await ask();
   await page.getByRole("button", { name: "New session" }).click();
   await expect(page.locator(".message")).toHaveCount(0);
   await ask();
   await page.reload();
+  await page.click("[data-enter-app]");
+  await page.locator("#app-shell").waitFor({ state: "visible" });
   await ask();
 
   const threadIds = requestBodies.map((body) => body.thread_id);
@@ -680,7 +1023,7 @@ test("full loads and repeated resets create isolated client thread IDs", async (
 for (const viewport of visualViewports) {
   test(`visual baseline ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await page.goto("/");
+    await gotoApp(page);
     const evidenceCanvas = page.locator("#evidence-canvas");
     await expect(evidenceCanvas).toHaveAttribute(
       "data-animation-state",

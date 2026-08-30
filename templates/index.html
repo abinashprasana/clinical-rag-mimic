@@ -7,7 +7,10 @@
     <meta name="theme-color" content="#071119">
     <title>Clinical Evidence Assistant | Answers grounded in the discharge record</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="preload" href="{{ url_for('static', filename='fonts/Newsreader-Display.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ url_for('static', filename='images/case-study-workspace.jpg') }}" as="image" type="image/jpeg" fetchpriority="high">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/case-study.css') }}">
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
 <body
@@ -15,9 +18,255 @@
     data-retrieval-top-k="{{ retrieval_top_k | default(5) }}"
     data-public-demo="{{ 'true' if public_demo else 'false' }}"
 >
-    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <a class="skip-link" href="#landing-main">Skip to main content</a>
 
-    <div class="app-shell">
+    <div class="landing" id="landing">
+        <div class="case-progress" id="case-progress" aria-hidden="true">
+            <span data-progress-bar></span>
+        </div>
+
+        <main class="landing-container" id="landing-main" tabindex="-1">
+            <header class="landing-hero" data-case-section="hero">
+                <div class="landing-hero__copy">
+                    <svg
+                        class="landing-mark"
+                        viewBox="0 0 32 32"
+                        width="56"
+                        height="56"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <path class="brand-mark__element brand-mark__rear-frame" d="M14 5H7Q5 5 5 7V23Q5 25 7 25H14" />
+                        <path class="brand-mark__element brand-mark__review-frame" d="M18 8H25Q27 8 27 10V24Q27 26 25 26H18" />
+                        <rect class="brand-mark__element brand-mark__window" x="10" y="11" width="12" height="10" rx="2" />
+                        <path class="brand-mark__element brand-mark__passage" d="M13 16H19" />
+                    </svg>
+                    <p class="eyebrow">Clinical Evidence Assistant</p>
+                    <h1>Evidence-grounded answers, built as an agent</h1>
+                    <p class="landing-lead">Ask a clinical question and get an answer traced back to the discharge note it came from. This started as a retrieve-then-generate pipeline over MIMIC-IV-Note and grew into an agent: it routes each question to the right tool, checks its own answer against the record before showing it, and refuses rather than guesses when the note doesn't say.</p>
+                    <div class="landing-actions">
+                        <a class="button button-primary" href="#assistant-panel" data-enter-app>
+                            <span>Ask a question</span>
+                            <span class="button-icon" aria-hidden="true">&rarr;</span>
+                        </a>
+                        <a class="button button-secondary" href="https://github.com/abinashprasana/clinical-rag-mimic" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub (opens in a new tab)">
+                            <span>View source on GitHub</span>
+                            <span class="button-icon" aria-hidden="true">&#8599;</span>
+                        </a>
+                    </div>
+                </div>
+
+                <figure class="evidence-scene" data-depth-scene aria-labelledby="evidence-scene-caption">
+                    <div class="evidence-scene__stage">
+                        <div class="evidence-scene__grid" aria-hidden="true"></div>
+                        <div class="evidence-scene__screen">
+                            <img
+                                src="{{ url_for('static', filename='images/case-study-workspace.jpg') }}"
+                                width="1024"
+                                height="576"
+                                alt="The Clinical Evidence Assistant workspace showing its evidence path and empty evidence inspector"
+                                fetchpriority="high"
+                            >
+                        </div>
+                        <svg class="evidence-scene__trace" viewBox="0 0 720 520" aria-hidden="true" focusable="false">
+                            <path class="trace-path trace-path--muted" d="M78 404 C174 404 160 316 254 316 S332 200 430 200 S516 116 642 116" />
+                            <path class="trace-path trace-path--active" d="M78 404 C174 404 160 316 254 316 S332 200 430 200 S516 116 642 116" />
+                            <circle class="trace-node trace-node--one" cx="78" cy="404" r="7" />
+                            <circle class="trace-node trace-node--two" cx="254" cy="316" r="7" />
+                            <circle class="trace-node trace-node--three" cx="430" cy="200" r="7" />
+                            <circle class="trace-node trace-node--four" cx="642" cy="116" r="7" />
+                        </svg>
+                        <div class="evidence-plane evidence-plane--route" aria-hidden="true"><span data-ui-copy>Route</span></div>
+                        <div class="evidence-plane evidence-plane--retrieve" aria-hidden="true"><span data-ui-copy>Retrieve</span></div>
+                        <div class="evidence-plane evidence-plane--review" aria-hidden="true"><span data-ui-copy>Review</span></div>
+                    </div>
+                    <figcaption class="sr-only" id="evidence-scene-caption" data-ui-copy>A layered view of the real assistant workspace and its traceable evidence path.</figcaption>
+                </figure>
+            </header>
+
+            <nav class="case-chapters" id="case-chapters" aria-label="Case study chapters" data-ui-copy>
+                <span class="case-chapters__label">Project index</span>
+                <a href="#case-story" data-section-link="story">Story</a>
+                <a href="#case-architecture" data-section-link="architecture">Architecture</a>
+                <a href="#case-evidence" data-section-link="evidence">Evidence</a>
+                <a href="#case-boundaries" data-section-link="boundaries">Boundaries</a>
+            </nav>
+
+            <section class="overview-section landing-story case-chapter" id="case-story" aria-labelledby="landing-story-title" data-case-section="story" data-reveal tabindex="-1">
+                <div class="section-heading">
+                    <p class="eyebrow">How this came together</p>
+                    <h2 id="landing-story-title">From a retrieval pipeline to something closer to an agent</h2>
+                </div>
+                <div class="story-body">
+                    <p>This began as a plain retrieval-and-generate pipeline: embed a note, embed the question, find the closest passage, generate an answer from it. Over time it grew into something closer to an agent. A question is now routed to the right tool before it touches the record. A drug-dosage question goes to an FDA label lookup, not a guess pulled from someone's note, and every generated answer is checked against the retrieved text before it's shown, with one retry if that check fails. If neither routing nor retrieval turns up anything to ground an answer in, it says so instead of guessing.</p>
+                    <div class="story-signal" aria-hidden="true">
+                        <span class="story-signal__origin" data-ui-copy>Retrieve</span>
+                        <span class="story-signal__line"></span>
+                        <span class="story-signal__destination" data-ui-copy>Route · verify · refuse</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="overview-section case-chapter architecture-chapter" id="case-architecture" aria-labelledby="landing-flow-title" data-case-section="architecture" tabindex="-1">
+                <div class="architecture-intro">
+                    <div class="section-heading">
+                        <p class="eyebrow">Processing architecture</p>
+                        <h2 id="landing-flow-title">From question to reviewable response</h2>
+                        <p>The full breakdown, including what each stage does and doesn't guarantee, is in System Overview once you're inside the workspace.</p>
+                    </div>
+                </div>
+                <div class="pipeline-diagram" data-viz="architecture" data-reveal>
+                    <div class="pipeline-reveal-wrap">
+                        <svg class="pipeline-map" viewBox="0 0 720 780" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                            <path class="pipeline-map__rail" d="M88 110 C88 220 632 190 632 324 C632 452 88 420 88 552 C88 630 360 644 360 730" />
+                            <path class="pipeline-map__progress" d="M88 110 C88 220 632 190 632 324 C632 452 88 420 88 552 C88 630 360 644 360 730" />
+                        </svg>
+                        <ol class="pipeline-stack">
+                            <li class="pipeline-stage" tabindex="0" data-stage="route">
+                                <span class="pipeline-index">01</span>
+                                <h3>Route</h3>
+                                <p>Decide whether this needs a record lookup, a drug-label lookup, or a clarifying question, before touching the note.</p>
+                            </li>
+                            <li class="pipeline-connector" aria-hidden="true"></li>
+                            <li class="pipeline-stage" tabindex="0" data-stage="retrieve">
+                                <span class="pipeline-index">02</span>
+                                <h3>Retrieve &amp; generate</h3>
+                                <p>Pull the relevant passages and compose an answer from them{% if public_demo %} via the Gemini API{% else %} locally{% endif %}.</p>
+                            </li>
+                            <li class="pipeline-connector" aria-hidden="true"></li>
+                            <li class="pipeline-stage" tabindex="0" data-stage="review">
+                                <span class="pipeline-index">03</span>
+                                <h3>Check &amp; respond</h3>
+                                <p>Compare the draft against what was retrieved, retry once if it doesn't hold up, and show the sources either way.</p>
+                            </li>
+                        </ol>
+                        <div class="pipeline-output" aria-hidden="true" data-ui-copy>
+                            <span>Evidence path complete</span>
+                            <i></i>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="overview-section case-chapter evidence-chapter" id="case-evidence" aria-labelledby="landing-numbers-title" data-case-section="evidence" data-reveal tabindex="-1">
+                <div class="section-heading">
+                    <p class="eyebrow">The real numbers</p>
+                    <h2 id="landing-numbers-title">What's actually running, and what it measures</h2>
+                    <p>Two different datasets sit behind this project, and which one you're looking at depends on where you're viewing it from.</p>
+                </div>
+                <div class="dataset-pair">
+                    <article class="dataset-card dataset-card--restricted">
+                        <span class="dataset-tag">Restricted</span>
+                        <h3>MIMIC-IV-Note v2.2</h3>
+                        <p>331,793 de-identified discharge notes from 145,914 real hospital admissions, released by PhysioNet under a credentialed Data Use Agreement. Reading one requires completing CITI training and signing that agreement, which forbids sharing access with anyone who hasn't done the same.</p>
+                    </article>
+                    <article class="dataset-card dataset-card--public">
+                        <span class="dataset-tag">Public</span>
+                        <h3>Ten fabricated discharge notes</h3>
+                        <p>Written by hand for this deployment, in the same section format MIMIC-IV-Note uses. Every vital, lab result, and diagnosis is invented, with no real patient or admission behind any of it, so none of it was ever restricted to begin with.</p>
+                    </article>
+                </div>
+                <p class="dataset-why">{% if public_demo %}That's why this deployment runs on the fabricated notes only. The real agreement says access can't be shared with anyone else, and a public site handing out excerpts from real notes to anonymous visitors would do exactly that.{% else %}This local instance can run on either dataset, and everything below reflects whichever one is currently configured.{% endif %}</p>
+                <div class="live-status">
+                    <span class="live-dot" aria-hidden="true"></span>
+                    <p>{% if public_demo %}<strong>Right now:</strong> your question is embedded and matched against those fabricated notes through the Gemini API, an answer is generated from what matched, and it's checked against those same passages locally before you see it. If Gemini can't be reached, this falls back to a deterministic offline match instead of failing outright.{% elif gemini_enabled %}<strong>Right now:</strong> retrieval and answer generation both run locally on this machine with FLAN-T5, while question routing and clarification go through the Gemini API since a key is configured for this run. Because that routing step can carry clinical facts, this combination is meant for fabricated or otherwise unrestricted data, not a real MIMIC-IV-Note run.{% else %}<strong>Right now:</strong> retrieval, generation, and routing all run locally on this machine with FLAN-T5 and local keyword rules. No Gemini key is configured for this run, which is the intended setup for real MIMIC-IV-Note data, since routing context can carry clinical facts an external call would otherwise see.{% endif %}</p>
+                </div>
+                <section class="assurance-strip" aria-label="Core system facts">
+                    <div>
+                        <span>Dataset</span>
+                        <strong title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{{ dataset_version | default('MIMIC-IV-Note v2.2') }}</strong>
+                        <small>{% if public_demo %}Fabricated notes, no patient data{% else %}De-identified discharge notes{% endif %}</small>
+                    </div>
+                    <div>
+                        <span>Retrieval</span>
+                        <strong>Top {{ retrieval_top_k | default(5) }}</strong>
+                        <small>Section-aware passages</small>
+                    </div>
+                    <div>
+                        <span>Generation</span>
+                        <strong>{% if public_demo %}Gemini API{% else %}Local{% endif %}</strong>
+                        <small>{% if public_demo %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}{% elif gemini_enabled %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, Gemini-routed{% else %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, local routing{% endif %}</small>
+                    </div>
+                    <div>
+                        <span>Measured accuracy</span>
+                        {% if public_demo %}
+                        <strong>{{ accuracy_label }}</strong>
+                        <small>Not a benchmark vs. the local pipeline</small>
+                        {% else %}
+                        <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}&mdash;{% endif %}</strong>
+                        <small>Fixed structural question set</small>
+                        {% endif %}
+                    </div>
+                </section>
+                <div class="results-figure" data-viz="results" aria-label="Measured pipeline comparison">
+                    <div class="results-figure__legend" aria-hidden="true" data-ui-copy>
+                        <span>Accuracy</span>
+                        <span>Latency</span>
+                    </div>
+                    <div class="dataset-results">
+                        <div class="dataset-result dataset-result--real">
+                            <span>Real dataset</span>
+                            <strong>70%</strong>
+                            <div class="result-plot" aria-hidden="true"><i class="result-plot__accuracy"></i><b class="result-plot__latency"></b></div>
+                            <small>MIMIC-IV-Note, ~3.4s per question</small>
+                        </div>
+                        <div class="dataset-result dataset-result--demo">
+                            <span>Synthetic demo</span>
+                            <strong>80%</strong>
+                            <div class="result-plot" aria-hidden="true"><i class="result-plot__accuracy"></i><b class="result-plot__latency"></b></div>
+                            <small>Fabricated notes, ~4.6s per question</small>
+                        </div>
+                    </div>
+                </div>
+                <p class="dataset-results-note">Both figures come from the same 10-question keyword-hit check, run once against each dataset so both paths are actually measured, not just the one currently configured. {% if public_demo %}This deployment's own version of that check, run through the Gemini API against the fabricated notes, is the 10/10 canonical checks above, reported as a raw count rather than a percentage so it doesn't read as beating either number here.{% else %}It's a smoke test confirming the pipeline retrieves and answers correctly end to end, not a measure of clinical accuracy.{% endif %}</p>
+            </section>
+
+            <section class="overview-section case-chapter boundary-chapter" id="case-boundaries" aria-labelledby="landing-boundaries-title" data-case-section="boundaries" data-reveal tabindex="-1">
+                <div class="section-heading">
+                    <p class="eyebrow">Known boundaries</p>
+                    <h2 id="landing-boundaries-title">What it checks, and what it doesn't decide</h2>
+                </div>
+                <div class="boundary-columns" data-viz="boundaries">
+                    <div class="boundary-lane boundary-lane--checks">
+                        <h3>What it checks</h3>
+                        <ul>
+                            <li>Every answer is compared against the passages it was retrieved from before it's shown.</li>
+                            <li>A drug-dosage question goes to an FDA label lookup, not a guess from the note.</li>
+                            <li>If nothing in the record supports an answer, it says so instead of guessing.</li>
+                        </ul>
+                    </div>
+                    <div class="boundary-gate" aria-hidden="true" data-ui-copy>
+                        <span>Evidence gate</span>
+                        <i></i>
+                    </div>
+                    <div class="boundary-lane boundary-lane--limits">
+                        <h3>What it doesn't decide</h3>
+                        <ul>
+                            <li>It doesn't determine diagnosis or treatment, since a qualified clinician reviews the record.</li>
+                            <li>{% if public_demo %}This deployment runs on ten fabricated notes; no real patient data is used publicly.{% else %}Retrieval ranks text similarity, not clinical importance or correctness.{% endif %}</li>
+                            <li>Evaluation uses a small, fixed question set, not a general-purpose benchmark.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <footer class="landing-footer">
+                <p>Designed and built by Abinash Prasana Selvanathan.</p>
+                <div class="landing-actions">
+                    <a class="button button-primary" href="#assistant-panel" data-enter-app>
+                        <span>Ask a question</span>
+                        <span class="button-icon" aria-hidden="true">&rarr;</span>
+                    </a>
+                    <a class="button button-secondary" href="https://github.com/abinashprasana/clinical-rag-mimic" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub (opens in a new tab)">
+                        <span>View source on GitHub</span>
+                        <span class="button-icon" aria-hidden="true">&#8599;</span>
+                    </a>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <div class="app-shell" id="app-shell" hidden>
         <header class="app-bar">
             <a class="brand" href="#assistant-panel" aria-label="Clinical Evidence Assistant home">
                 <svg
@@ -262,6 +511,8 @@
                                 height="56"
                                 alt=""
                                 aria-hidden="true"
+                                loading="lazy"
+                                decoding="async"
                             >
                             <h3>No evidence selected</h3>
                             <p>Supporting passages and retrieval details will appear here after a record-based answer.</p>
@@ -299,6 +550,8 @@
                                 height="320"
                                 alt=""
                                 aria-hidden="true"
+                                loading="lazy"
+                                decoding="async"
                             >
                             <p class="eyebrow">System assurance</p>
                             <h1>Understand the evidence path and its limits</h1>

@@ -62,6 +62,7 @@ def test_get_index_passes_non_sensitive_metadata_and_security_headers(
             'retrieval_top_k': app_module.config.DEFAULT_TOP_K,
             'generator_model': app_module.config.LOCAL_GENERATOR_MODEL,
             'public_demo': False,
+            'gemini_enabled': bool(app_module.config.GEMINI_API_KEY),
         },
     }
     assert response.headers['Content-Security-Policy'] == (
