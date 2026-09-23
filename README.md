@@ -32,6 +32,16 @@ Deployed on Vercel, no setup needed. Ask a clinical question, see the passages t
 
 ---
 
+## 🎯 Why This Exists
+
+**The problem.** A discharge note can run to thousands of words, and the one line you need (a discharge dose, a potassium value, why a drug was stopped) sits in one section of it. A general chatbot will answer that question fluently, but it won't show you where the answer came from, and when the note is silent it tends to fill the gap with something plausible.
+
+**Who it's for.** People who pull facts out of clinical notes and then have to check them: clinical informatics researchers, chart reviewers, and anyone building question-answering over health records. It doesn't diagnose or suggest treatment.
+
+**What people use today.** Keyword search in the record finds the word but leaves you to read around it. Pasting notes into a hosted chatbot gives you an answer with no trail back to the source, and with MIMIC-IV the data use agreement rules that out anyway. A basic RAG pipeline shows the passages it used, but it still displays whatever the model wrote, supported or not.
+
+**What this does differently.** The answer has to pass a check before you see it. Every draft is compared against the retrieved passages on content words and numbers, gets one retry, and turns into a refusal if it still doesn't hold up. Dosage questions skip the patient note entirely and go to the FDA label. The data agreement shaped the deployment too: real notes never leave the local machine, and the public demo runs on ten notes I wrote myself.
+
 ## 🔎 System Scope
 
 Clinical Evidence Assistant answers questions over real de-identified discharge notes from the MIMIC-IV dataset. Ask a plain-language clinical question and it retrieves the relevant sections, routes to the right tool (record lookup or an FDA label lookup), generates an answer locally, and checks that answer against the retrieved text before showing it. If the notes don't contain the answer, it says so instead of guessing.

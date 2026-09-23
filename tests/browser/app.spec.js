@@ -43,8 +43,8 @@ const caseStudySections = [
 ];
 
 const editorialCopyDigests = {
-  local: "25f29765d69d8e7e5d3ddab24f0206a5fc6279365a470903792e63879e3cdd21",
-  public: "8e40ba963fe6ff6f1286aeb842a3ed3aa79cc9af7905ca43856ca7231c0ad628",
+  local: "f5f5d5283facd45efab250fef40bc288d00f5296544512cfe0e6290863965b2f",
+  public: "c833490fde97fa5118828960402eb80257663f12f57158438c317d618626c728",
 };
 
 const strictCsp = [

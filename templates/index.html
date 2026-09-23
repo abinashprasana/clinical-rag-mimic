@@ -98,7 +98,7 @@
                     <h2 id="landing-story-title">From a retrieval pipeline to something closer to an agent</h2>
                 </div>
                 <div class="story-body">
-                    <p>This began as a plain retrieval-and-generate pipeline: embed a note, embed the question, find the closest passage, generate an answer from it. Over time it grew into something closer to an agent. A question is now routed to the right tool before it touches the record. A drug-dosage question goes to an FDA label lookup, not a guess pulled from someone's note, and every generated answer is checked against the retrieved text before it's shown, with one retry if that check fails. If neither routing nor retrieval turns up anything to ground an answer in, it says so instead of guessing.</p>
+                    <p>A discharge note can run to thousands of words, and the fact you need usually sits in one section of it. This is for the people who have to check an answer against that note, like researchers and chart reviewers, so every answer here arrives with the passage it came from. This began as a plain retrieval-and-generate pipeline: embed a note, embed the question, find the closest passage, generate an answer from it. Over time it grew into something closer to an agent. A question is now routed to the right tool before it touches the record. A drug-dosage question goes to an FDA label lookup, not a guess pulled from someone's note, and every generated answer is checked against the retrieved text before it's shown, with one retry if that check fails. If neither routing nor retrieval turns up anything to ground an answer in, it says so instead of guessing.</p>
                     <div class="story-signal" aria-hidden="true">
                         <span class="story-signal__origin" data-ui-copy>Retrieve</span>
                         <span class="story-signal__line"></span>
@@ -417,7 +417,7 @@
                                         <div>
                                             <dt>Measured accuracy</dt>
                                             {% if public_demo %}
-                                            <dd title="Measured only on this app's own fixed 10-question smoke test with scripts/evaluate_public_demo.py, not a benchmark comparable to the real/synthetic dataset figures below. Falls back to a simpler offline method if Gemini is unavailable.">{{ accuracy_label }}</dd>
+                                            <dd title="Measured only on this app's own fixed 10-question smoke test with demo/evaluate_public.py, not a benchmark comparable to the real/synthetic dataset figures below. Falls back to a simpler offline method if Gemini is unavailable.">{{ accuracy_label }}</dd>
                                             {% elif accuracy_pct is not none %}
                                             <dd>{{ accuracy_pct }}%</dd>
                                             {% else %}
@@ -564,8 +564,8 @@
                         <section class="assurance-strip" aria-label="Core system facts">
                             <div>
                                 <span>Dataset</span>
-                                <strong title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{{ dataset_version | default('MIMIC-IV-Note v2.2') }}</strong>
-                                <small>De-identified discharge notes</small>
+                                <strong title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{% if public_demo %}Synthetic demo{% else %}{{ dataset_version | default('MIMIC-IV-Note v2.2') }}{% endif %}</strong>
+                                <small>{% if public_demo %}Fabricated notes, no patient data{% else %}De-identified discharge notes{% endif %}</small>
                             </div>
                             <div>
                                 <span>Retrieval</span>
@@ -646,7 +646,7 @@
                                 </figure>
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Public demo evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
-                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same fabricated-record evaluation; this deployment performs no model inference.</figcaption>
+                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same fabricated-record evaluation; answers come from the Gemini API, so timings include that network call.</figcaption>
                                 </figure>
                                 {% else %}
                                 <figure class="analysis-figure">
@@ -745,7 +745,7 @@
                                     <div>
                                         <h3>Included publicly</h3>
                                         <ul>
-                                            <li>Ten fabricated discharge-note examples and deterministic retrieval code.</li>
+                                            <li>Ten fabricated discharge-note examples and the retrieval code that searches them.</li>
                                             <li>Source identifiers reserved for the synthetic demo range.</li>
                                             <li>Static interface assets created specifically for this project.</li>
                                         </ul>
@@ -755,7 +755,7 @@
                                         <ul>
                                             <li>Restricted discharge text, derived chunks, indices, and evaluation outputs.</li>
                                             <li>Models that require cold-start downloads or persistent local storage.</li>
-                                            <li>External AI calls and process-local conversation memory.</li>
+                                            <li>Process-local conversation memory.</li>
                                         </ul>
                                     </div>
                                 </div>
