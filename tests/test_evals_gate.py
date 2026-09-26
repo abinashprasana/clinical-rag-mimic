@@ -42,10 +42,13 @@ def test_gate_passes_against_itself_and_fails_on_a_shuffled_ranking():
     assert any(m.startswith('FAIL  recall@5') for m in messages)
 
 
-def test_gate_fails_on_one_lost_question():
+def test_gate_tolerates_one_lost_question_and_fails_at_two():
     baseline = gate.measure(OracleRetriever(), CORPUS, QUESTIONS)
+    assert len(QUESTIONS) == 70
     one_lost = {**baseline, 'recall@5': baseline['recall@5'] - 1 / len(QUESTIONS)}
-    assert gate.compare(one_lost, baseline, THRESHOLDS)[0] is False
+    two_lost = {**baseline, 'recall@5': baseline['recall@5'] - 2 / len(QUESTIONS)}
+    assert gate.compare(one_lost, baseline, THRESHOLDS)[0] is True
+    assert gate.compare(two_lost, baseline, THRESHOLDS)[0] is False
 
 
 def test_gate_fails_when_question_set_changes():

@@ -33,7 +33,7 @@ Matching lowercases both sides and collapses whitespace. Numbers and units must 
 
 ## Target counts
 
-About twice the demo set: single fact 24, medication list 16, multi section 12, negation 12, unanswerable 16, FDA dosage 8, ambiguous 6, discharge instructions or follow up 6.
+The same as the demo set, about 100 questions: single fact 24, medication list 16, multi section 12, negation 12, unanswerable 16, FDA dosage 8, ambiguous 6, discharge instructions or follow up 6.
 
 ## Check the file
 

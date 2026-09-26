@@ -226,6 +226,8 @@ def main(argv=None):
                         help='also score draft questions (development only, labelled UNREVIEWED)')
     parser.add_argument('--no-legacy', action='store_true', help='skip the original 10 question row')
     parser.add_argument('--file', help='override the golden file path')
+    parser.add_argument('--split', choices=['all', 'dev', 'test'], default='all',
+                        help='frozen half of the demo set (evals/golden/demo_split.json)')
     args = parser.parse_args(argv)
     common.guard_real_data(args.corpus)
 
@@ -239,7 +241,7 @@ def main(argv=None):
     if errors:
         print(f'{len(errors)} validation errors; run python -m evals.golden --corpus {args.corpus}')
         return 1
-    questions = select(all_questions, args.include_unreviewed)
+    questions = select(all_questions, args.include_unreviewed, args.split)
     if not questions:
         print('No reviewed questions. Mark questions "reviewed": true, '
               'or pass --include-unreviewed for a development run.')
@@ -269,13 +271,14 @@ def main(argv=None):
                             if args.corpus == 'demo' else legacy_real())
 
     agg_dir, records_dir = common.output_dirs(args.corpus, args.include_unreviewed)
-    stem = f'generation_{args.corpus}' + ('.unreviewed' if args.include_unreviewed else '')
+    stem = (f'generation_{args.corpus}' + ('' if args.split == 'all' else f'_{args.split}')
+            + ('.unreviewed' if args.include_unreviewed else ''))
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)
     with open(os.path.join(agg_dir, stem + '.md'), 'w', encoding='utf-8', newline='\n') as f:
         f.write(render(result, 'md') + '\n')
     common.write_jsonl(os.path.join(records_dir, f'generation_records_{args.corpus}.jsonl'), records)
     print(render(result, 'text'))
-    common.refresh_summary(args.corpus, args.include_unreviewed)
+    common.refresh_summary(args.corpus, args.include_unreviewed or args.split != 'all')
     print(f'\nWrote {agg_dir}/{stem}.json and .md; per question records in {records_dir}/.')
     return 0
 

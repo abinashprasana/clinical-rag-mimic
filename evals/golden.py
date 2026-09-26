@@ -34,8 +34,8 @@ CATEGORIES = {
     'ambiguous': 'clarify',
 }
 DEMO_TARGET_COUNTS = {
-    'single_fact': 12, 'medication_list': 8, 'multi_section': 6, 'negation': 6,
-    'unanswerable': 8, 'fda_dosage': 4, 'ambiguous': 3, 'discharge_followup': 3,
+    'single_fact': 24, 'medication_list': 16, 'multi_section': 12, 'negation': 12,
+    'unanswerable': 16, 'fda_dosage': 8, 'ambiguous': 6, 'discharge_followup': 6,
 }
 FIELDS = {
     'id': str, 'category': str, 'question': str, 'expected_behavior': str,
@@ -68,15 +68,25 @@ def load_questions(path):
     return questions
 
 
-def select(questions, include_unreviewed=False):
-    return [q for q in questions if include_unreviewed or q.get('reviewed') is True]
+SPLIT_FILE = os.path.join(GOLDEN_DIR, 'demo_split.json')
+
+
+def select(questions, include_unreviewed=False, split='all'):
+    """Reviewed questions (or all with include_unreviewed), optionally limited
+    to the frozen dev or test half of the demo set."""
+    chosen = [q for q in questions if include_unreviewed or q.get('reviewed') is True]
+    if split == 'all':
+        return chosen
+    with open(SPLIT_FILE, encoding='utf-8') as f:
+        ids = set(json.load(f)[split])
+    return [q for q in chosen if q['id'] in ids]
 
 
 def validate(questions, corpus=None):
     """Returns (errors, warnings), each a list of (question id, message).
     Messages name fields and ids, never question or note text."""
     errors, warnings = [], []
-    seen = set()
+    seen, seen_text = set(), set()
     for n, q in enumerate(questions, 1):
         qid = q.get('id', f'line {n}')
         for field, kind in FIELDS.items():
@@ -91,6 +101,11 @@ def validate(questions, corpus=None):
         elif qid in seen:
             errors.append((qid, 'duplicate id'))
         seen.add(qid)
+        text = q.get('question')
+        if isinstance(text, str) and text.strip().lower() in seen_text:
+            errors.append((qid, 'duplicate question text'))
+        if isinstance(text, str):
+            seen_text.add(text.strip().lower())
 
         behavior, category = q.get('expected_behavior'), q.get('category')
         if behavior not in BEHAVIORS:

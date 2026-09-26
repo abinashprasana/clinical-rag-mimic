@@ -119,6 +119,8 @@ def main(argv=None):
                         help='also score draft questions (development only, labelled UNREVIEWED)')
     parser.add_argument('--variants', nargs='+', choices=VARIANTS, default=list(VARIANTS))
     parser.add_argument('--file', help='override the golden file path')
+    parser.add_argument('--split', choices=['all', 'dev', 'test'], default='all',
+                        help='frozen half of the demo set (evals/golden/demo_split.json)')
     args = parser.parse_args(argv)
     common.guard_real_data(args.corpus)
 
@@ -132,7 +134,7 @@ def main(argv=None):
     if errors:
         print(f'{len(errors)} validation errors; run python -m evals.golden --corpus {args.corpus}')
         return 1
-    questions = [q for q in select(all_questions, args.include_unreviewed)
+    questions = [q for q in select(all_questions, args.include_unreviewed, args.split)
                  if q['expected_behavior'] == 'answer']
     if not questions:
         print('No reviewed retrieval questions. Mark questions "reviewed": true, '
@@ -150,7 +152,8 @@ def main(argv=None):
         'by_category': by_category(records_by_variant),
     }
     agg_dir, records_dir = common.output_dirs(args.corpus, args.include_unreviewed)
-    stem = f'retrieval_{args.corpus}' + ('.unreviewed' if args.include_unreviewed else '')
+    stem = (f'retrieval_{args.corpus}' + ('' if args.split == 'all' else f'_{args.split}')
+            + ('.unreviewed' if args.include_unreviewed else ''))
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)
     with open(os.path.join(agg_dir, stem + '.md'), 'w', encoding='utf-8', newline='\n') as f:
         f.write(render(result, 'md') + '\n')
@@ -159,7 +162,7 @@ def main(argv=None):
         [{'variant': v, **r} for v, recs in records_by_variant.items() for r in recs],
     )
     print(render(result, 'text'))
-    common.refresh_summary(args.corpus, args.include_unreviewed)
+    common.refresh_summary(args.corpus, args.include_unreviewed or args.split != 'all')
     print(f'\nWrote {agg_dir}/{stem}.json and .md; per question records in {records_dir}/.')
     return 0
 
