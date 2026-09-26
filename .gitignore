@@ -49,3 +49,13 @@ notebook_source.py
 
 # Secrets
 .env
+
+# Evaluation harness (evals/). Real-data files live under outputs/ (ignored
+# above) or carry .local. in their name; per-question demo run records stay
+# local too. Tracked evals JSON (thresholds, baseline, demo aggregates) is
+# re-included from the blanket *.json rule.
+evals/runs/
+!evals/**/*.json
+# Must stay after the re-include above so a *.local.json is never tracked.
+*.local.*
+!.env.local.example

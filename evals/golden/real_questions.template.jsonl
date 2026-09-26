@@ -1,0 +1,1 @@
+{"id": "q001", "category": "single_fact", "question": "WRITE YOUR QUESTION HERE", "expected_behavior": "answer", "relevant": [{"note_id": "HADM_ID_FROM_LIST_SECTIONS", "section": "Discharge Medications"}], "must_contain": ["EXACT TERM FROM THE NOTE"], "must_not_contain": [], "reviewed": false, "notes": ""}
