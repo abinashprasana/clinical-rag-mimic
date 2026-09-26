@@ -56,6 +56,7 @@ def test_score_aggregates_with_intervals():
 
 
 def stub_graph(monkeypatch, draft):
+    monkeypatch.setattr(graph.config, 'ANSWER_MODE', 'generative')
     monkeypatch.setattr(graph, 'retrieve_chunks', lambda *a, **k: [CHUNK])
     monkeypatch.setattr(graph, 'generate_answer', lambda question, chunks, gen: (draft, 0.0))
     monkeypatch.setattr(graph.llm, 'gemini_route', lambda *a, **k: None)

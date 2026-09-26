@@ -191,16 +191,13 @@
                         <strong>{% if public_demo %}Gemini API{% else %}Local{% endif %}</strong>
                         <small>{% if public_demo %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}{% elif gemini_enabled %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, Gemini-routed{% else %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, local routing{% endif %}</small>
                     </div>
+                    {% call(label, value, detail) ev.headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) %}
                     <div>
-                        <span>Measured accuracy</span>
-                        {% if public_demo %}
-                        <strong>{{ accuracy_label }}</strong>
-                        <small>Not a benchmark vs. the local pipeline</small>
-                        {% else %}
-                        <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}&mdash;{% endif %}</strong>
-                        <small>Original 10 question smoke test</small>
-                        {% endif %}
+                        <span>{{ label }}</span>
+                        <strong>{{ value }}</strong>
+                        <small>{{ detail }}</small>
                     </div>
+                    {% endcall %}
                 </section>
                 <div class="results-figure" data-viz="results" aria-label="Measured pipeline comparison">
                     <div class="results-figure__legend" aria-hidden="true" data-ui-copy>
@@ -225,7 +222,7 @@
                         {% if eval_real %}{{ ev.golden_rows(eval_real, 'Golden question set, real notes') }}{% endif %}
                     </div>
                 </div>
-                <p class="dataset-results-note">The first two rows come from the original 10 question keyword check, run once against each dataset. The golden question set scores retrieval and answers separately, and each of its rows shows a 95% interval. {% if public_demo %}Those rows measure the local FLAN-T5 pipeline on the same ten fabricated notes. This site answers through the Gemini API, and its own run of the 10 question check is the 10/10 canonical checks above.{% else %}The keyword check only confirms the pipeline answers end to end, and says nothing about clinical accuracy.{% endif %}</p>
+                <p class="dataset-results-note">The first two rows come from the original 10 question keyword check, run once against each dataset. The golden question set scores retrieval and answers separately, and each of its rows shows a 95% interval. {% if public_demo %}Those rows measure the local FLAN-T5 pipeline on the same ten fabricated notes. This site answers through the Gemini API; its own run of the original 10 question check scored 10/10.{% else %}The keyword check only confirms the pipeline answers end to end, and says nothing about clinical accuracy.{% endif %}</p>
             </section>
 
             <section class="overview-section case-chapter boundary-chapter" id="case-boundaries" aria-labelledby="landing-boundaries-title" data-case-section="boundaries" data-reveal tabindex="-1">
@@ -418,16 +415,12 @@
                                             <dt>Retrieval</dt>
                                             <dd>Top {{ retrieval_top_k | default(5) }} passages</dd>
                                         </div>
+                                        {% call(label, value, detail) ev.headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) %}
                                         <div>
-                                            <dt>Measured accuracy</dt>
-                                            {% if public_demo %}
-                                            <dd title="Measured only on this app's own fixed 10-question smoke test with demo/evaluate_public.py, not a benchmark comparable to the real/synthetic dataset figures below. Falls back to a simpler offline method if Gemini is unavailable.">{{ accuracy_label }}</dd>
-                                            {% elif accuracy_pct is not none %}
-                                            <dd>{{ accuracy_pct }}%</dd>
-                                            {% else %}
-                                            <dd>Not recorded</dd>
-                                            {% endif %}
+                                            <dt>{{ label }}</dt>
+                                            <dd title="{{ detail }}">{{ value }}</dd>
                                         </div>
+                                        {% endcall %}
                                     </dl>
                                 </div>
 
@@ -581,16 +574,13 @@
                                 <strong>{% if public_demo %}Gemini API{% else %}Local{% endif %}</strong>
                                 <small>{{ generator_model | default('FLAN-T5') | replace('google/', '') }}</small>
                             </div>
+                            {% call(label, value, detail) ev.headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) %}
                             <div>
-                                <span>Measured accuracy</span>
-                                {% if public_demo %}
-                                <strong>{{ accuracy_label }}</strong>
-                                <small>Not a benchmark vs. the local pipeline</small>
-                                {% else %}
-                                <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}—{% endif %}</strong>
-                                <small>Original 10 question smoke test</small>
-                                {% endif %}
+                                <span>{{ label }}</span>
+                                <strong>{{ value }}</strong>
+                                <small>{{ detail }}</small>
                             </div>
+                            {% endcall %}
                         </section>
 
                         <section class="overview-section architecture-section" aria-labelledby="architecture-title">

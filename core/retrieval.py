@@ -35,12 +35,24 @@ _HEADER_RE = re.compile(r"^\[([^\]]+)\]")
 # but tokenize differently -- normalize before comparing word sets.
 _HEADER_ALIASES = (("followup", "follow up"),)
 
-def _normalized_words(text):
+def _normalized_words(text, stem=False):
     for source, target in _HEADER_ALIASES:
         text = text.lower().replace(source, target)
-    return _word_set(text)
+    words = _word_set(text)
+    return {_stem(w) for w in words} if stem else words
 
-def _header_boost(chunk_text, query_words, weight=0.15):
+_stemmer = None
+
+def _stem(word):
+    """Porter stem, so "discharged" matches "Discharge" and "allergy"
+    matches "Allergies" when comparing a question with a section header."""
+    global _stemmer
+    if _stemmer is None:
+        from nltk.stem import PorterStemmer
+        _stemmer = PorterStemmer()
+    return _stemmer.stem(word)
+
+def _header_boost(chunk_text, query_words, weight=0.15, stem=False):
     """Chunking prefixes every chunk with its own section header (see
     chunking.py's "[Header] ..." format). When a question's own words
     substantially name that header (e.g. "discharge disposition" question,
@@ -53,20 +65,24 @@ def _header_boost(chunk_text, query_words, weight=0.15):
     match = _HEADER_RE.match(chunk_text)
     if not match:
         return 0.0
-    header_words = _normalized_words(match.group(1))
+    header_words = _normalized_words(match.group(1), stem=stem)
     if not header_words:
         return 0.0
     overlap = len(header_words & query_words) / len(header_words)
     return weight * overlap
 
 def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT_TOP_K,
-                    header_boost=True):
+                    header_boost=True, stem_headers=None, note_first=False):
     """Returns up to k chunks with their similarity score and source
     subject_id/hadm_id, so answers can be cited back to a real note.
     Near-duplicate passages (from overlapping chunk windows) are dropped in
     favor of the higher-scoring copy, so the model -- and the evidence
     inspector -- never sees the same passage twice. header_boost=False ranks
-    by raw similarity only; evals/retrievers.py uses it to measure the boost."""
+    by raw similarity only; evals/retrievers.py uses it to measure the boost.
+    stem_headers compares Porter stems of question and header words.
+    note_first picks the note of the best candidate, then ranks every
+    section of that note (two-stage retrieval, as in CLI-RAG,
+    arXiv:2507.06715), filling any remaining slots from the global list."""
     query_vec = model.encode([question]).astype('float32')
     # FAISS FIX: Normalise query for Inner Product
     faiss.normalize_L2(query_vec)
@@ -74,14 +90,28 @@ def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT
     # up to k distinct passages instead of shrinking below it.
     scores, indices = index.search(query_vec, min(k * 3, len(chunks)))
 
-    query_words = _normalized_words(question)
+    if stem_headers is None:
+        stem_headers = config.RETRIEVAL_STEM_HEADERS
+    query_words = _normalized_words(question, stem=stem_headers)
     candidates = [(i, score) for score, i in zip(scores[0], indices[0]) if i >= 0]
     # Re-rank by similarity plus header-relevance boost; the displayed
     # "score" stays the raw similarity so it keeps meaning what it says.
     # Keep this lightweight header signal instead of adding another model-
     # backed re-ranking stage, which would increase latency and dependencies.
-    if header_boost:
-        candidates.sort(key=lambda c: c[1] + _header_boost(chunks[c[0]], query_words), reverse=True)
+    def ranked(pool):
+        if not header_boost:
+            return sorted(pool, key=lambda c: c[1], reverse=True)
+        return sorted(pool, key=lambda c: c[1] + _header_boost(chunks[c[0]], query_words, stem=stem_headers),
+                      reverse=True)
+
+    candidates = ranked(candidates)
+    if note_first and candidates:
+        top_note = provenance[candidates[0][0]]['hadm_id']
+        in_note = [i for i, p in enumerate(provenance) if p['hadm_id'] == top_note]
+        note_scores = [float(query_vec[0] @ index.reconstruct(int(i))) for i in in_note]
+        within = ranked(list(zip(in_note, note_scores)))
+        seen = {i for i, _ in within}
+        candidates = within + [c for c in candidates if c[0] not in seen]
 
     results = []
     kept_words_list = []

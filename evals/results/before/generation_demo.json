@@ -1,0 +1,131 @@
+{
+  "meta": {
+    "corpus": "demo",
+    "reviewed_only": true,
+    "n_questions": 100,
+    "run_at": "2026-09-26T20:28:18+00:00",
+    "git_commit": "ad0262a"
+  },
+  "generator": "google/flan-t5-base",
+  "routing": "offline keyword rules; openFDA stubbed",
+  "scores": {
+    "headline": {
+      "answer_correctness": {
+        "k": 36,
+        "n": 70,
+        "rate": 0.5142857142857142,
+        "low": 0.39954383919009234,
+        "high": 0.6275412161696143
+      },
+      "refusal_accuracy": {
+        "k": 4,
+        "n": 16,
+        "rate": 0.25,
+        "low": 0.10182067491213048,
+        "high": 0.49498316535508774
+      },
+      "routing_accuracy": {
+        "k": 12,
+        "n": 14,
+        "rate": 0.8571428571428571,
+        "low": 0.6005862050302965,
+        "high": 0.9599060787285351
+      },
+      "routing_clarify": {
+        "k": 4,
+        "n": 6,
+        "rate": 0.6666666666666666,
+        "low": 0.299993315138392,
+        "high": 0.9032285888942195
+      },
+      "routing_fda": {
+        "k": 8,
+        "n": 8,
+        "rate": 1.0,
+        "low": 0.6755924351161198,
+        "high": 1.0
+      }
+    },
+    "per_category": {
+      "ambiguous": {
+        "k": 4,
+        "n": 6,
+        "rate": 0.6666666666666666,
+        "low": 0.299993315138392,
+        "high": 0.9032285888942195
+      },
+      "discharge_followup": {
+        "k": 4,
+        "n": 6,
+        "rate": 0.6666666666666666,
+        "low": 0.299993315138392,
+        "high": 0.9032285888942195
+      },
+      "fda_dosage": {
+        "k": 8,
+        "n": 8,
+        "rate": 1.0,
+        "low": 0.6755924351161198,
+        "high": 1.0
+      },
+      "medication_list": {
+        "k": 7,
+        "n": 16,
+        "rate": 0.4375,
+        "low": 0.23098652405492354,
+        "high": 0.6682144360118811
+      },
+      "multi_section": {
+        "k": 0,
+        "n": 12,
+        "rate": 0.0,
+        "low": 2.7755575615628914e-17,
+        "high": 0.24249400665524085
+      },
+      "negation": {
+        "k": 9,
+        "n": 12,
+        "rate": 0.75,
+        "low": 0.46769466506643426,
+        "high": 0.9110583316059453
+      },
+      "single_fact": {
+        "k": 16,
+        "n": 24,
+        "rate": 0.6666666666666666,
+        "low": 0.4670631683813174,
+        "high": 0.8202780967270225
+      },
+      "unanswerable": {
+        "k": 4,
+        "n": 16,
+        "rate": 0.25,
+        "low": 0.10182067491213048,
+        "high": 0.49498316535508774
+      }
+    },
+    "gate": {
+      "drafts_checked": 88,
+      "first_check_passed": 86,
+      "retried": 2,
+      "retry_changed_draft": 0,
+      "outcomes": {
+        "shown": 81,
+        "refused_by_gate": 2,
+        "model_refusal": 5,
+        "fda_card": 8,
+        "clarified": 4
+      },
+      "answerable_refused_by_gate": 2
+    },
+    "mean_latency_s": 3.6621911240089684
+  },
+  "legacy": {
+    "k": 8,
+    "n": 10,
+    "rate": 0.8,
+    "low": 0.49016247153664183,
+    "high": 0.9433178485456247,
+    "source": "rerun now with demo/evaluate.py questions and keywords"
+  }
+}

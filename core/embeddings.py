@@ -34,12 +34,17 @@ def main():
     model = SentenceTransformer(config.EMBEDDING_MODEL)
     print('Model loaded.')
 
+    # Embed contextual text (a note context line + the chunk) when enabled;
+    # the stored chunks stay plain. See core/chunking.contextual_texts.
+    from core.chunking import contextual_texts
+    index_texts = contextual_texts(all_chunks, provenance) if config.CONTEXTUAL_INDEX else all_chunks
+
     batch_size = config.EMBEDDING_BATCH_SIZE
     all_embeddings = []
     start_time = time.time()
 
-    for i in range(0, len(all_chunks), batch_size):
-        batch = all_chunks[i:i + batch_size]
+    for i in range(0, len(index_texts), batch_size):
+        batch = index_texts[i:i + batch_size]
         all_embeddings.append(model.encode(batch, show_progress_bar=False))
         if (i // batch_size) % 20 == 0:
             print(f'  {min(i + batch_size, len(all_chunks)):,} / {len(all_chunks):,} chunks embedded...')

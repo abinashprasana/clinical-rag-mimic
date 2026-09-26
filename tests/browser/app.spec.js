@@ -43,11 +43,12 @@ const caseStudySections = [
 ];
 
 // Updated on purpose for the golden question set copy (original smoke test
-// relabel, new results note, evaluation boundary line). Data rows carry
+// relabel, new results note, evaluation boundary line, answer correctness
+// headline cell). Data rows carry
 // data-ui-copy and are checked by the golden set tests below instead.
 const editorialCopyDigests = {
-  local: "8056b5b99f477f849edde6b3df7b1366b53f01bc7d48a0efddf45c329b54f9c8",
-  public: "4c1c0e8f6634b943900b6f152bfa905164a07c3ac8e46231bd534e91f2cb5e9a",
+  local: "fc87a2fb6f30eb558a63dedb358fac3b573b2eae1ad01cb33c04f292c4f53dc4",
+  public: "02348f8b0d548f514fdf03c052b53729d19807e73ee851134304428feb1db7b1",
 };
 
 const strictCsp = [
@@ -266,7 +267,9 @@ for (const mode of ["local", "public"]) {
 
     const evidence = page.locator("#case-evidence");
     if (mode === "public") {
-      await expect(evidence.getByText("10/10 canonical checks", { exact: true })).toHaveCount(1);
+      // The headline cell now reports the golden set; the original 10/10 run is named in the note.
+      await expect(evidence.getByText("Local FLAN-T5 pipeline, 18 of 30 questions, demo notes", { exact: true })).toHaveCount(1);
+      await expect(evidence.locator(".dataset-results-note")).toContainText("scored 10/10");
       await expect(evidence.getByText("Fabricated notes, no patient data", { exact: true })).toHaveCount(1);
       await expect(evidence.getByText("De-identified discharge notes", { exact: true })).toHaveCount(0);
     } else {

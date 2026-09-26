@@ -20,13 +20,18 @@ from agent.tools import fda_label_tool
 from agent.reflection import local_reflect
 from agent import llm
 from core.retrieval import retrieve_chunks
-from core.generation import generate_answer
+from core.extractive import decompose, hybrid_answer
+from core.generation import generate_answer, is_answerable
 import config
 
 REFUSAL_TEXT = (
     "I could not confirm this answer is fully supported by the retrieved "
     "notes -- please review the cited excerpts directly."
 )
+
+# Same wording as the generator's own refusal in core/generation.py, so the
+# answerability check and the model refuse the same way.
+NOT_IN_NOTES_TEXT = 'I cannot find this information in the provided notes.'
 
 _STOPWORDS = {
     'the', 'a', 'an', 'is', 'of', 'for', 'and', 'what', 'dose', 'dosage',
@@ -94,6 +99,20 @@ def make_retrieve_node(embedding_model, faiss_index, chunks, provenance):
     loaded once at app startup rather than reloading them per call."""
     def retrieve_node(state: AgentState) -> AgentState:
         state['step_count'] += 1
+        if config.ANSWER_MODE == 'hybrid':
+            # Retrieve each part of a two-part question on its own; cite the
+            # union of their passages, best first, without repeats.
+            state['part_evidence'] = [
+                (part, retrieve_chunks(part, embedding_model, faiss_index, chunks, provenance,
+                                       k=config.DEFAULT_TOP_K))
+                for part in decompose(state['question'])
+            ]
+            merged = {}
+            for _, part_chunks in state['part_evidence']:
+                for chunk in part_chunks:
+                    merged.setdefault(chunk['chunk_idx'], chunk)
+            state['retrieved_chunks'] = list(merged.values())
+            return state
         state['retrieved_chunks'] = retrieve_chunks(
             state['question'], embedding_model, faiss_index, chunks, provenance,
             k=config.DEFAULT_TOP_K,
@@ -130,8 +149,17 @@ def make_generate_node(local_generator):
         if state.get('fda_result'):
             state['draft_answer'] = None
             state['tool_used'] = f"FDA Label Lookup: {state['fda_result'].get('drug_name')}"
+        elif state.get('retrieved_chunks') and config.ANSWER_MODE == 'hybrid' and state.get('part_evidence'):
+            answer, refused = hybrid_answer(state['part_evidence'], local_generator)
+            state['draft_answer'] = NOT_IN_NOTES_TEXT if refused else answer
+            state['tool_used'] = f"Retrieved {len(state['retrieved_chunks'])} evidence passages"
+            return state
         elif state.get('retrieved_chunks'):
-            answer, _ = generate_answer(state['question'], state['retrieved_chunks'], local_generator)
+            passages = state['retrieved_chunks'][:config.GENERATION_TOP_K]
+            if config.ANSWERABILITY_CHECK and not is_answerable(state['question'], passages, local_generator):
+                answer = NOT_IN_NOTES_TEXT
+            else:
+                answer, _ = generate_answer(state['question'], passages, local_generator)
             state['draft_answer'] = answer
             state['tool_used'] = f"Retrieved {len(state['retrieved_chunks'])} evidence passages"
         else:

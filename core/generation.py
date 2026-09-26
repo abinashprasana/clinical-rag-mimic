@@ -39,15 +39,16 @@ def _assemble(question, context):
         f'Answer:'
     )
 
-def build_prompt(question, chunks, tokenizer=None):
+def build_prompt(question, chunks, tokenizer=None, assemble=None):
     chunk_texts = [c['chunk_text'] if isinstance(c, dict) else c for c in chunks]
     # Keep prompt labels compact; section-header relevance is handled once,
     # in retrieval.py's header-boost re-ranking, instead of duplicating that
     # signal as extra natural-language framing here.
     context = '\n\n'.join([f'[Chunk {i+1}]\n{c}' for i, c in enumerate(chunk_texts)])
+    assemble = assemble or _assemble
 
     if tokenizer is None:
-        return _assemble(question, context)
+        return assemble(question, context)
 
     # flan-t5's encoder silently truncates past 512 tokens regardless of
     # model size -- a 5-chunk x 180-word context runs well past that, so
@@ -55,14 +56,14 @@ def build_prompt(question, chunks, tokenizer=None):
     # model was already being fed truncated/garbled input. Measure the
     # template's fixed cost first, then truncate only the context to fit
     # what's actually left of the budget.
-    overhead = len(tokenizer.encode(_assemble(question, ''), add_special_tokens=False))
+    overhead = len(tokenizer.encode(assemble(question, ''), add_special_tokens=False))
     context_budget = max(config.MAX_INPUT_TOKENS - overhead, 50)
 
     context_tokens = tokenizer.encode(context, add_special_tokens=False)
     if len(context_tokens) > context_budget:
         context = tokenizer.decode(context_tokens[:context_budget], skip_special_tokens=True)
 
-    return _assemble(question, context)
+    return assemble(question, context)
 
 def _clean_generated_text(text):
     """Defense-in-depth cleanup applied to every answer, not just list-shaped
@@ -109,6 +110,43 @@ def generate_answer(question, retrieved_chunks, generator):
         )
     latency = time.time() - start_time
     return _clean_generated_text(result[0]['generated_text']), latency
+
+def _assemble_answerability(question, context):
+    # Clinical notes often answer a question by recording that something is
+    # absent ("no chest pain", "without complication"); without this line the
+    # model treats a documented absence as missing information.
+    return (f'Context:\n{context}\n\nQuestion: {question}\n\n'
+            f'A note that records something as absent or negative, such as "no chest pain", '
+            f'does answer the question. '
+            f'Can the question be answered using only the context above? Answer yes or no.')
+
+
+def is_answerable(question, retrieved_chunks, generator):
+    """Asks the local model whether the passages can answer the question at
+    all, before it writes an answer. FLAN-T5's instruction tuning includes
+    SQuAD 2.0's unanswerable questions, and a separate support judgement
+    before answering follows Self-RAG (Asai et al., ICLR 2024). Returns
+    False only on an explicit "no"."""
+    with _generator_lock:
+        prompt = build_prompt(question, retrieved_chunks, tokenizer=generator.tokenizer,
+                              assemble=_assemble_answerability)
+        result = generator(prompt, max_new_tokens=3, truncation=True)
+    return not result[0]['generated_text'].strip().lower().startswith('no')
+
+
+_judge = None
+
+
+def get_judge():
+    """The answerability judge (config.ANSWERABILITY_JUDGE_MODEL), loaded once.
+    On the dev split FLAN-T5-large recognised unanswerable questions far more
+    reliably than the base model, while the base model writes better answers,
+    so the two roles use different models."""
+    global _judge
+    if _judge is None:
+        _judge = pipeline('text2text-generation', model=config.ANSWERABILITY_JUDGE_MODEL)
+    return _judge
+
 
 def load_generator():
     print(f'Loading {config.LOCAL_GENERATOR_MODEL}...')

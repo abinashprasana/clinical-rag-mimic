@@ -43,7 +43,10 @@ def main():
     print(f'Loading {config.EMBEDDING_MODEL}...')
     model = SentenceTransformer(config.EMBEDDING_MODEL)
 
-    embeddings = model.encode(all_chunks, show_progress_bar=False).astype('float32')
+    # The index may embed contextual text; chunks_data.pkl keeps the plain
+    # chunks, which the public runtime and the evidence view read.
+    index_texts = chunking.contextual_texts(all_chunks, provenance) if config.CONTEXTUAL_INDEX else all_chunks
+    embeddings = model.encode(index_texts, show_progress_bar=False).astype('float32')
     faiss.normalize_L2(embeddings)
 
     index = faiss.IndexFlatIP(embeddings.shape[1])

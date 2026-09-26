@@ -70,6 +70,38 @@ def section_chunk(text):
 
     return chunks if chunks else fixed_chunk(text)
 
+_SENTENCE_END = re.compile(r'(?<=[.!?])\s')
+
+def _first_sentence(text, max_words=30):
+    body = re.sub(r'^\[[^\]]+\]\s*', '', text)
+    sentence = _SENTENCE_END.split(body, maxsplit=1)[0]
+    return ' '.join(sentence.split()[:max_words])
+
+def contextual_texts(chunks, provenance):
+    """Index text for each chunk: a short note-level context line followed by
+    the chunk itself (contextual retrieval: Anthropic, 2024; HiQA,
+    arXiv:2402.01767). The context is the first sentence of the note's
+    History of Present Illness (or Chief Complaint) and of its Discharge
+    Diagnosis, so a section that never names the patient's problem, such as
+    a medication list, still carries it. Only the embedding and keyword
+    index use this text; the stored and displayed chunk text is unchanged."""
+    by_note = {}
+    for chunk, prov in zip(chunks, provenance):
+        header = re.match(r'^\[([^\]]+)\]', chunk)
+        name = header.group(1).lower() if header else ''
+        note = by_note.setdefault(prov.get('hadm_id'), {})
+        for key in ('history of present illness', 'chief complaint', 'discharge diagnosis'):
+            if name == key and key not in note:
+                note[key] = _first_sentence(chunk)
+    texts = []
+    for chunk, prov in zip(chunks, provenance):
+        note = by_note.get(prov.get('hadm_id'), {})
+        parts = [note.get('history of present illness') or note.get('chief complaint'),
+                 note.get('discharge diagnosis')]
+        context = ' '.join(p for p in parts if p)
+        texts.append(f'(Note context: {context}) {chunk}' if context else chunk)
+    return texts
+
 def chunk_all_notes(df, text_col='text', max_notes=2000):
     all_chunks, chunk_sources = [], []
     for idx, row in df.head(max_notes).iterrows():

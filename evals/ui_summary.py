@@ -15,7 +15,7 @@ import os
 SCHEMA = 1
 DEMO_SUMMARY = os.path.join('evals', 'results', 'summary_demo.json')
 REAL_SUMMARY = os.path.join('outputs', 'eval', 'summary_real.json')
-SECTIONS = ('retrieval', 'generation', 'faithfulness', 'stress', 'injection')
+SECTIONS = ('retrieval', 'generation', 'faithfulness', 'stress', 'injection', 'public')
 
 
 def _read(path):
@@ -81,6 +81,16 @@ def build_summary(results_dir, corpus):
             rows = [{'name': k, 'k': v['detected'], 'n': v['n']} for k, v in stress['counts'].items() if v['n']]
             summary['stress'] = {'rows': rows} if rows else None
 
+    public = _read(os.path.join(results_dir, 'public_demo.json')) if corpus == 'demo' else None
+    if public and public.get('answered_by_gemini'):
+        summary['public'] = {
+            'run_at': public['meta']['run_at'], 'attempted': public['attempted'],
+            'answered_by_gemini': public['answered_by_gemini'],
+            'recall@5': _interval(public['recall@5']) if public.get('recall@5') else None,
+            'answer_correctness': _rate(public.get('answer_correctness')),
+            'refusal_accuracy': _rate(public.get('refusal_accuracy')),
+        }
+
     if injection:
         paths = []
         for name, p in injection['paths'].items():
@@ -118,8 +128,11 @@ def valid(summary):
                                  ('answer_correctness', 'refusal_accuracy', 'routing_accuracy')):
         return False
     f = summary.get('faithfulness')
-    return f is None or all(_valid_rate(f.get(k)) for k in
-                            ('agreement', 'false_pass', 'false_refusal', 'self_agreement'))
+    if f is not None and not all(_valid_rate(f.get(k)) for k in
+                                 ('agreement', 'false_pass', 'false_refusal', 'self_agreement')):
+        return False
+    p = summary.get('public')
+    return p is None or all(_valid_rate(p.get(k)) for k in ('answer_correctness', 'refusal_accuracy'))
 
 
 def load_summary(path):

@@ -140,3 +140,24 @@
 <p class="eval-note">The check compares an answer with the retrieved passages. The planted instruction sits inside a passage, so an answer that repeats it still looks supported. Nine questions is a small sample, and the Gemini count can change between runs.</p>
 {% endif %}
 {%- endmacro %}
+
+{#- The headline accuracy cell used by both assurance strips and the welcome
+    panel. Order of preference: the live public app's golden set run (public
+    mode), the local pipeline's golden set run, then the original smoke test. -#}
+{% macro headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) -%}
+{% set pub = eval_demo.public if eval_demo else none %}
+{% set gen = (eval_real.generation if eval_real and eval_real.generation else (eval_demo.generation if eval_demo else none)) %}
+{% set scope = 'real notes' if eval_real and eval_real.generation else 'demo notes' %}
+{% if public_demo and pub and pub.answer_correctness %}
+{{ caller('Answer correctness', pct(pub.answer_correctness.rate),
+          'Live Gemini app, ' ~ pub.answer_correctness.k ~ ' of ' ~ pub.answer_correctness.n ~ ' golden questions' ~
+          (', recall@5 ' ~ pct(pub['recall@5'].mean) if pub['recall@5'] else '')) }}
+{% elif gen and gen.answer_correctness %}
+{{ caller('Answer correctness', pct(gen.answer_correctness.rate),
+          ('Local FLAN-T5 pipeline, ' if public_demo else 'Golden set, ') ~ gen.answer_correctness.k ~ ' of ' ~ gen.answer_correctness.n ~ ' questions, ' ~ scope) }}
+{% elif public_demo %}
+{{ caller('Measured accuracy', accuracy_label, 'Original 10 question smoke test') }}
+{% else %}
+{{ caller('Measured accuracy', (accuracy_pct ~ '%') if accuracy_pct is not none else '—', 'Original 10 question smoke test') }}
+{% endif %}
+{%- endmacro %}

@@ -3,7 +3,11 @@
 Every retriever takes a question and returns a ranked list of chunk indices
 (at most k), with the same near duplicate filter the live pipeline applies.
 
-* dense              core.retrieval.retrieve_chunks as used today (header boost on)
+* dense              core.retrieval.retrieve_chunks as the app runs it: the index on
+                     disk (contextual text when CONTEXTUAL_INDEX is on) and the
+                     header boost with stemmed matching
+* dense_legacy       the behaviour before the evaluation work: plain chunk text
+                     in the index and unstemmed header matching
 * dense_no_boost     the same code path with the header boost off
 * bm25               Okapi BM25 over raw lowercased chunk text, negation terms kept
 * hybrid_rrf         dense and BM25 fused by reciprocal rank fusion (k = 60)
@@ -16,7 +20,7 @@ import re
 
 from core.retrieval import _is_near_duplicate, _word_set, retrieve_chunks
 
-VARIANTS = ('dense', 'dense_no_boost', 'bm25', 'hybrid_rrf', 'hybrid_rrf_rerank')
+VARIANTS = ('dense', 'dense_legacy', 'dense_no_boost', 'bm25', 'hybrid_rrf', 'hybrid_rrf_rerank')
 DEFAULT_VARIANT = 'dense'
 RRF_K = 60
 FUSION_DEPTH = 50
@@ -59,24 +63,28 @@ def rrf_fuse(rankings, weights=None, k=RRF_K):
 
 
 class DenseRetriever:
-    def __init__(self, embed_model, index, chunks, provenance, header_boost=True):
+    def __init__(self, embed_model, index, chunks, provenance, header_boost=True,
+                 stem_headers=None, note_first=False):
         self.embed_model, self.index = embed_model, index
         self.chunks, self.provenance = chunks, provenance
         self.header_boost = header_boost
+        self.options = {'stem_headers': stem_headers, 'note_first': note_first}
 
     def retrieve(self, question, k=5):
         results = retrieve_chunks(
             question, self.embed_model, self.index, self.chunks, self.provenance,
-            k=k, header_boost=self.header_boost,
+            k=k, header_boost=self.header_boost, **self.options,
         )
         return [r['chunk_idx'] for r in results]
 
 
 class BM25Retriever:
-    def __init__(self, chunks):
+    def __init__(self, chunks, index_texts=None):
+        """index_texts, when given, is what BM25 scores (for example the
+        contextual texts); chunks stay the texts used for de-duplication."""
         from rank_bm25 import BM25Okapi
         self.chunks = chunks
-        self.bm25 = BM25Okapi([bm25_tokens(c) for c in chunks])
+        self.bm25 = BM25Okapi([bm25_tokens(c) for c in (index_texts or chunks)])
 
     def ranking(self, question, depth):
         scores = self.bm25.get_scores(bm25_tokens(question))
@@ -115,10 +123,33 @@ class RerankRetriever:
         return [pool[j] for j in order[:k]]
 
 
+def _index_over(embed_model, texts):
+    import faiss
+    vectors = embed_model.encode(texts, show_progress_bar=False).astype('float32')
+    faiss.normalize_L2(vectors)
+    index = faiss.IndexFlatIP(vectors.shape[1])
+    index.add(vectors)
+    return index
+
+
+def plain_index(embed_model, corpus):
+    """FAISS index over the plain chunk text, as the index was built before
+    contextual index text."""
+    return _index_over(embed_model, corpus.chunks)
+
+
+def contextual_index(embed_model, corpus):
+    """FAISS index over the contextual texts (core.chunking.contextual_texts),
+    built in memory with the same embedding model as the live index."""
+    from core.chunking import contextual_texts
+    return _index_over(embed_model, contextual_texts(corpus.chunks, corpus.provenance))
+
+
 def build_retrievers(corpus, variants=VARIANTS, embed_model=None, index=None, cross_encoder=None):
     """Builds the requested variants over one corpus. Heavy models load only
     when a variant needs them."""
-    needs_dense = any(v in variants for v in ('dense', 'dense_no_boost', 'hybrid_rrf', 'hybrid_rrf_rerank'))
+    needs_dense = any(v in variants for v in
+                      ('dense', 'dense_legacy', 'dense_no_boost', 'hybrid_rrf', 'hybrid_rrf_rerank'))
     if needs_dense and (embed_model is None or index is None):
         import faiss
         from sentence_transformers import SentenceTransformer
@@ -145,6 +176,9 @@ def build_retrievers(corpus, variants=VARIANTS, embed_model=None, index=None, cr
                 from sentence_transformers import CrossEncoder
                 cross_encoder = CrossEncoder(RERANKER_MODEL)
             built[variant] = RerankRetriever(HybridRRFRetriever(dense, bm25), cross_encoder)
+        elif variant == 'dense_legacy':
+            built[variant] = DenseRetriever(embed_model, plain_index(embed_model, corpus),
+                                            corpus.chunks, corpus.provenance, stem_headers=False)
         else:
             raise ValueError(f'unknown retrieval variant {variant!r}')
     return built

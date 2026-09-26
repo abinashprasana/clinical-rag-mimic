@@ -30,6 +30,14 @@ CHUNK_OVERLAP = int(os.getenv('CHUNK_OVERLAP', 40))
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 EMBEDDING_BATCH_SIZE = int(os.getenv('EMBEDDING_BATCH_SIZE', 64))
 DEFAULT_TOP_K = int(os.getenv('DEFAULT_TOP_K', 5))
+# Embed each chunk with a short note-level context line in front of it
+# (core/chunking.contextual_texts). Changes only the index text, never the
+# stored or displayed chunk. Rebuild the index after changing this.
+CONTEXTUAL_INDEX = _bool('CONTEXTUAL_INDEX', True)
+# Compare Porter stems of question and section header words in the header
+# boost, so "discharged" matches "Discharge". Chosen on the evaluation dev
+# split; see evals/tune_retrieval.py and the README Evaluation section.
+RETRIEVAL_STEM_HEADERS = _bool('RETRIEVAL_STEM_HEADERS', True)
 OUTPUT_DIR = os.getenv('OUTPUT_DIR', 'outputs/')
 # Shown in the UI's "Dataset" field. Set to something like "Synthetic demo
 # notes (not real patient data)" when OUTPUT_DIR points at outputs_demo/ --
@@ -40,6 +48,27 @@ DATASET_LABEL = os.getenv('DATASET_LABEL', 'MIMIC-IV-Note v2.2')
 # --- Generation (local model, always stays on-device) ---
 LOCAL_GENERATOR_MODEL = os.getenv('LOCAL_GENERATOR_MODEL', 'google/flan-t5-base')
 MAX_NEW_TOKENS = int(os.getenv('MAX_NEW_TOKENS', 200))
+# How many of the retrieved passages go into the generator prompt. All
+# DEFAULT_TOP_K passages are still cited and used by the faithfulness check.
+GENERATION_TOP_K = int(os.getenv('GENERATION_TOP_K', 5))
+# Ask the local model whether the passages can answer the question before
+# generating, and refuse when it says no (core/generation.is_answerable).
+ANSWERABILITY_CHECK = _bool('ANSWERABILITY_CHECK', False)
+# How record answers are produced (chosen on the evaluation dev split, see
+# evals/tune_hybrid.py):
+#   'hybrid'      split a two-part question into parts and retrieve each; a
+#                 part whose best evidence is a numbered list (a medication
+#                 list) is answered with that list verbatim, any other part by
+#                 the local generator; refuse only when the answerability
+#                 judge says no to every part AND no part's evidence scores
+#                 at least EXTRACTIVE_THRESHOLD with the cross encoder.
+#   'generative'  the original path: the local generator writes the answer
+#                 from the retrieved passages.
+ANSWER_MODE = os.getenv('ANSWER_MODE', 'hybrid')
+EXTRACTIVE_RERANKER = os.getenv('EXTRACTIVE_RERANKER', 'cross-encoder/ms-marco-MiniLM-L-6-v2')
+EXTRACTIVE_THRESHOLD = float(os.getenv('EXTRACTIVE_THRESHOLD', 0.0))
+ANSWERABILITY_JUDGE_MODEL = os.getenv('ANSWERABILITY_JUDGE_MODEL', 'google/flan-t5-large')
+EXTRACTIVE_TOP_CHUNKS = int(os.getenv('EXTRACTIVE_TOP_CHUNKS', 2))
 # flan-t5's encoder truncates at 512 tokens regardless of model size (base or
 # large); leaves headroom for the instruction template + question wrapped
 # around the retrieved-chunk context.
