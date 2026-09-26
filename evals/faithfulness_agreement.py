@@ -12,6 +12,7 @@ supported" and "unsupported" both count as not supported.
 * false refusal rate  supported answers the gate refused / all supported answers
 """
 import argparse
+import math
 import os
 import sys
 
@@ -95,7 +96,7 @@ def render(result, fmt_name):
         parts.append(table(['gate versus human labels', 'value'], [
             ['items', a['n']],
             ['agreement', fmt(a['agreement'])],
-            ['Cohen kappa', 'n/a' if a['kappa'] != a['kappa'] else f"{a['kappa']:.2f}"],
+            ['Cohen kappa', 'n/a' if math.isnan(a['kappa']) else f"{a['kappa']:.2f}"],
             ['false pass rate', fmt(a['false_pass'])],
             ['false refusal rate', fmt(a['false_refusal'])],
             ['self agreement, binary (relabelled items)', fmt(s.get('agreement_binary'))],
@@ -154,6 +155,7 @@ def main(argv=None):
     with open(os.path.join(agg_dir, stem + '.md'), 'w', encoding='utf-8', newline='\n') as f:
         f.write(render(result, 'md') + '\n')
     print(render(result, 'text'))
+    common.refresh_summary(args.corpus, args.include_unreviewed or args.stress_source == 'gate-passed')
     print(f'\nWrote {agg_dir}/{stem}.json and .md.')
     return 0
 

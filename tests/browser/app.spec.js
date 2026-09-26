@@ -42,9 +42,12 @@ const caseStudySections = [
   { id: "case-boundaries", key: "boundaries", heading: "What it checks, and what it doesn't decide" },
 ];
 
+// Updated on purpose for the golden question set copy (original smoke test
+// relabel, new results note, evaluation boundary line). Data rows carry
+// data-ui-copy and are checked by the golden set tests below instead.
 const editorialCopyDigests = {
-  local: "f5f5d5283facd45efab250fef40bc288d00f5296544512cfe0e6290863965b2f",
-  public: "c833490fde97fa5118828960402eb80257663f12f57158438c317d618626c728",
+  local: "8056b5b99f477f849edde6b3df7b1366b53f01bc7d48a0efddf45c329b54f9c8",
+  public: "4c1c0e8f6634b943900b6f152bfa905164a07c3ac8e46231bd534e91f2cb5e9a",
 };
 
 const strictCsp = [
@@ -1019,6 +1022,63 @@ test("full loads and repeated resets create isolated client thread IDs", async (
     expect(threadId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   }
 });
+
+test("case study shows the original smoke test beside golden set rows with intervals", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await gotoLanding(page, "public");
+  const results = page.locator("#case-evidence .dataset-results");
+  await expect(results.locator(".results-group").first()).toHaveText("Original smoke test (10 questions, keyword match)");
+  await expect(results.locator(".dataset-result--real strong")).toHaveText("70%");
+  await expect(results.locator(".dataset-result--demo strong")).toHaveText("80%");
+  const golden = results.locator(".dataset-result--golden");
+  await expect(golden).toHaveCount(3);
+  await expect(golden.nth(0)).toContainText("Retrieval recall@5");
+  await expect(golden.nth(0).locator("strong")).toHaveText("70%");
+  await expect(golden.nth(0)).toContainText("95% interval 55% to 84%");
+  await expect(golden.nth(0).locator("svg.result-interval")).toHaveAttribute("aria-hidden", "true");
+  await expect(golden.nth(0).locator(".result-interval__range")).toHaveAttribute("x1", "55.0");
+  await expect(golden.nth(2).locator("strong")).toHaveText("Pending");
+  const axe = await new AxeBuilder({ page }).include("#case-evidence").analyze();
+  expect(axe.violations).toEqual([]);
+});
+
+test("golden set rows and tables show a pending state without a summary", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/?mode=local&eval=pending");
+  const golden = page.locator("#case-evidence .dataset-result--golden");
+  await expect(golden).toHaveCount(3);
+  for (const row of await golden.all()) {
+    await expect(row.locator("strong")).toHaveText("Pending");
+    await expect(row.locator(".result-interval__range")).toHaveCount(0);
+  }
+  await page.click("[data-enter-app]");
+  await page.getByRole("tab", { name: "System Overview" }).click();
+  await expect(page.locator("#overview-panel .eval-results")).toContainText(
+    "Results appear here once the questions are reviewed.",
+  );
+  await expect(page.locator("#overview-panel .eval-results table")).toHaveCount(2);
+});
+
+for (const width of [320, 1280]) {
+  test(`overview golden set tables stay contained at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await gotoApp(page);
+    await page.getByRole("tab", { name: "System Overview" }).click();
+    const block = page.locator("#overview-panel .eval-results");
+    await expect(block.locator("table")).toHaveCount(3);
+    await expect(block.locator("caption").first()).toHaveText("Retrieval, fabricated demo notes, 30 questions");
+    await expect(block.locator("tbody th", { hasText: "dense (default)" })).toHaveCount(1);
+    await expect(block).toContainText("Poisoned note test");
+    const pageOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(pageOverflow).toBeLessThanOrEqual(0);
+    for (const wrap of await block.locator(".eval-table-wrap").all()) {
+      const box = await wrap.boundingBox();
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+    const axe = await new AxeBuilder({ page }).include("#overview-panel .eval-results").analyze();
+    expect(axe.violations).toEqual([]);
+  });
+}
 
 for (const viewport of visualViewports) {
   test(`visual baseline ${viewport.name}`, async ({ page }) => {

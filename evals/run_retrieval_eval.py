@@ -159,6 +159,7 @@ def main(argv=None):
         [{'variant': v, **r} for v, recs in records_by_variant.items() for r in recs],
     )
     print(render(result, 'text'))
+    common.refresh_summary(args.corpus, args.include_unreviewed)
     print(f'\nWrote {agg_dir}/{stem}.json and .md; per question records in {records_dir}/.')
     return 0
 

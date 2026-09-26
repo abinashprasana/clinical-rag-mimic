@@ -275,6 +275,7 @@ def main(argv=None):
         f.write(render(result, 'md') + '\n')
     common.write_jsonl(os.path.join(records_dir, f'generation_records_{args.corpus}.jsonl'), records)
     print(render(result, 'text'))
+    common.refresh_summary(args.corpus, args.include_unreviewed)
     print(f'\nWrote {agg_dir}/{stem}.json and .md; per question records in {records_dir}/.')
     return 0
 

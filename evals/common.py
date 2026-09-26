@@ -66,6 +66,17 @@ def run_metadata(corpus_name, include_unreviewed, n_questions):
     }
 
 
+def refresh_summary(corpus_name, include_unreviewed):
+    """Rebuild the UI summary after a reviewed run; unreviewed runs never feed it."""
+    if include_unreviewed:
+        return
+    from evals.ui_summary import DEMO_SUMMARY, REAL_SUMMARY, write_summary
+    if corpus_name == 'real':
+        write_summary(REAL_DIR, 'real', REAL_SUMMARY)
+    else:
+        write_summary(RESULTS_DIR, 'demo', DEMO_SUMMARY)
+
+
 def write_json(path, payload):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:

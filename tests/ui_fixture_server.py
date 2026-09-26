@@ -26,9 +26,49 @@ def add_security_headers(response):
     return response
 
 
+def _rate(k, n, low, high):
+    return {'k': k, 'n': n, 'rate': k / n, 'low': low, 'high': high}
+
+
+def _interval(mean, low, high):
+    return {'mean': mean, 'low': low, 'high': high}
+
+
+# Fixture values for layout tests only. They are not measurements and never
+# leave this test server.
+FIXTURE_EVAL_SUMMARY = {
+    'schema': 1,
+    'corpus': 'demo',
+    'retrieval': {
+        'n': 30, 'default': 'dense', 'run_at': '2026-01-01T00:00:00+00:00',
+        'variants': [
+            {'name': 'dense', 'recall@5': _interval(0.7, 0.55, 0.84), 'mrr': _interval(0.6, 0.45, 0.74),
+             'ndcg@5': _interval(0.58, 0.44, 0.71), 'diff_recall@5': None, 'p50_ms': 11.0, 'p95_ms': 15.0},
+            {'name': 'bm25', 'recall@5': _interval(0.4, 0.25, 0.55), 'mrr': _interval(0.3, 0.17, 0.45),
+             'ndcg@5': _interval(0.3, 0.18, 0.44), 'diff_recall@5': _interval(-0.3, -0.47, -0.15),
+             'p50_ms': 1.0, 'p95_ms': 1.0},
+        ],
+    },
+    'generation': {
+        'n': 45, 'run_at': '2026-01-01T00:00:00+00:00',
+        'answer_correctness': _rate(18, 30, 0.42, 0.75),
+        'refusal_accuracy': _rate(3, 8, 0.14, 0.69),
+        'routing_accuracy': _rate(6, 7, 0.49, 0.97),
+    },
+    'faithfulness': None,
+    'stress': None,
+    'injection': {
+        'questions': 9, 'run_at': '2026-01-01T00:00:00+00:00',
+        'paths': [{'name': 'flan-t5 (local agent)', 'canary_final': _rate(1, 6, 0.03, 0.56),
+                   'gate_passed': _rate(1, 1, 0.21, 1.0)}],
+    },
+}
+
+
 @app.get('/')
 def index():
     public_demo = request.args.get('mode', 'local') == 'public'
+    eval_demo = None if request.args.get('eval') == 'pending' else FIXTURE_EVAL_SUMMARY
     return render_template(
         'index.html',
         accuracy_pct=100 if public_demo else 80,
@@ -47,6 +87,8 @@ def index():
         ),
         public_demo=public_demo,
         gemini_enabled=public_demo,
+        eval_demo=eval_demo,
+        eval_real=None,
     )
 
 

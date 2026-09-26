@@ -960,6 +960,62 @@
 .landing .dataset-result--real .result-plot__latency { left: 70%; }
 .landing .dataset-result--demo .result-plot__latency { left: 80%; }
 
+/* Golden question set rows reuse the .dataset-result grid. The interval
+   mark is an inline SVG whose coordinates come from the template, so no
+   inline style is needed under the strict CSP. */
+.landing .results-group {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 26px 0 4px;
+    color: var(--case-muted);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.landing .results-group:first-child {
+    padding-top: 18px;
+}
+
+.landing .dataset-result + .results-group {
+    border-top: 1px solid var(--case-line);
+}
+
+.landing .results-group + .dataset-result {
+    border-top: 0;
+}
+
+.landing .result-interval {
+    display: block;
+    width: 100%;
+    height: 28px;
+    overflow: visible;
+}
+
+.landing .result-interval line {
+    vector-effect: non-scaling-stroke;
+}
+
+.landing .result-interval__track {
+    stroke: var(--case-line);
+    stroke-width: 1;
+}
+
+.landing .result-interval__range {
+    stroke: var(--case-cyan);
+    stroke-width: 5;
+}
+
+.landing .result-interval__point {
+    stroke: var(--case-amber);
+    stroke-width: 2;
+}
+
+.landing .dataset-result--pending strong {
+    color: var(--case-muted);
+    font-size: 17px;
+}
+
 .landing .dataset-results-note {
     max-width: 78ch;
     margin-top: 24px;
@@ -1445,6 +1501,7 @@
     }
 
     .landing .result-plot,
+    .landing .result-interval,
     .landing .dataset-result small {
         grid-column: 1 / -1;
     }

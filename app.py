@@ -156,6 +156,11 @@ def create_app(runtime=LOCAL_RUNTIME):
                 if results:
                     hits = sum(item['keyword_found'] for item in results)
                     accuracy_pct = round(hits / len(results) * 100)
+        # Aggregate golden set results (no text, no ids). The real-data
+        # summary is local only; the public function never reads outputs/.
+        from evals.ui_summary import DEMO_SUMMARY, REAL_SUMMARY, load_summary
+        eval_demo = load_summary(DEMO_SUMMARY)
+        eval_real = None if runtime_state['public_demo'] else load_summary(REAL_SUMMARY)
         return render_template(
             'index.html',
             accuracy_pct=accuracy_pct,
@@ -165,6 +170,8 @@ def create_app(runtime=LOCAL_RUNTIME):
             generator_model=runtime_state['generator_label'],
             public_demo=runtime_state['public_demo'],
             gemini_enabled=bool(config.GEMINI_API_KEY),
+            eval_demo=eval_demo,
+            eval_real=eval_real,
         )
 
     @app.route('/healthz')

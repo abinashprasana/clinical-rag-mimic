@@ -4,6 +4,8 @@ import uuid
 import pytest
 
 import app as app_module
+from evals import ui_summary
+from evals.golden import GOLDEN_FILES, load_questions
 
 
 @pytest.fixture
@@ -48,6 +50,7 @@ def test_get_index_passes_non_sensitive_metadata_and_security_headers(
         return 'index'
 
     monkeypatch.setattr(app_module, 'render_template', fake_render)
+    monkeypatch.setattr(ui_summary, 'load_summary', lambda path: {'summary_path': path})
 
     response = flask_app.test_client().get('/')
 
@@ -63,6 +66,8 @@ def test_get_index_passes_non_sensitive_metadata_and_security_headers(
             'generator_model': app_module.config.LOCAL_GENERATOR_MODEL,
             'public_demo': False,
             'gemini_enabled': bool(app_module.config.GEMINI_API_KEY),
+            'eval_demo': {'summary_path': ui_summary.DEMO_SUMMARY},
+            'eval_real': {'summary_path': ui_summary.REAL_SUMMARY},
         },
     }
     assert response.headers['Content-Security-Policy'] == (
@@ -349,3 +354,21 @@ def test_public_demo_question_returns_only_synthetic_evidence():
     assert payload['citations']
     assert all(item['subject_id'] >= 9_000_000 for item in payload['citations'])
     assert all(item['hadm_id'] >= 29_000_000 for item in payload['citations'])
+
+
+def test_public_runtime_never_reads_the_real_summary(monkeypatch):
+    requested = []
+    monkeypatch.setattr(ui_summary, 'load_summary', lambda path: requested.append(path))
+    captured = {}
+    monkeypatch.setattr(app_module, 'render_template', lambda name, **ctx: captured.update(ctx) or 'index')
+
+    assert app_module.app.test_client().get('/').status_code == 200
+    assert requested == [ui_summary.DEMO_SUMMARY]
+    assert captured['eval_real'] is None
+
+
+def test_rendered_page_contains_no_golden_question_text():
+    page = app_module.app.test_client().get('/').get_data(as_text=True)
+    assert 'Golden question set' in page
+    for question in load_questions(GOLDEN_FILES['demo']):
+        assert question['question'] not in page

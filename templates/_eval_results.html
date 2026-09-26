@@ -1,0 +1,142 @@
+{#- Golden set evaluation results. Every number comes from an aggregate
+    summary written by the evals/ runners (evals/ui_summary.py); a missing
+    summary renders a pending state and never a placeholder number. -#}
+
+{% macro pct(x) %}{{ (x * 100) | round | int }}%{% endmacro %}
+{% macro dec(x) %}{{ '%.2f' | format(x) }}{% endmacro %}
+
+{% macro interval_mark(value, low, high) -%}
+<svg class="result-interval" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    <line class="result-interval__track" x1="0" y1="20" x2="100" y2="20"></line>
+    {%- if value is not none %}
+    <line class="result-interval__range" x1="{{ '%.1f' | format(low * 100) }}" y1="20" x2="{{ '%.1f' | format(high * 100) }}" y2="20"></line>
+    <line class="result-interval__point" x1="{{ '%.1f' | format(value * 100) }}" y1="12" x2="{{ '%.1f' | format(value * 100) }}" y2="27"></line>
+    {%- endif %}
+</svg>
+{%- endmacro %}
+
+{% macro result_row(label, value, low, high, detail, modifier) -%}
+<div class="dataset-result dataset-result--golden{% if modifier %} dataset-result--{{ modifier }}{% endif %}" data-ui-copy>
+    <span>{{ label }}</span>
+    <strong>{% if value is not none %}{{ pct(value) }}{% else %}Pending{% endif %}</strong>
+    {{ interval_mark(value, low, high) }}
+    <small>{{ detail }}</small>
+</div>
+{%- endmacro %}
+
+{% macro rate_row(label, row, pending_note) -%}
+{% if row %}{{ result_row(label, row.rate, row.low, row.high, '95% interval ' ~ pct(row.low) ~ ' to ' ~ pct(row.high) ~ ', ' ~ row.k ~ ' of ' ~ row.n) }}
+{%- else %}{{ result_row(label, none, none, none, pending_note, 'pending') }}{% endif %}
+{%- endmacro %}
+
+{#- Case study rows: headline numbers for one corpus. -#}
+{% macro golden_rows(summary, heading) -%}
+<p class="results-group">{{ heading }}</p>
+{% set retrieval = summary.retrieval if summary else none %}
+{% set default = (retrieval.variants | selectattr('name', 'equalto', retrieval.default) | first) if retrieval else none %}
+{% if default %}
+{{ result_row('Retrieval recall@5', default['recall@5'].mean, default['recall@5'].low, default['recall@5'].high,
+   '95% interval ' ~ pct(default['recall@5'].low) ~ ' to ' ~ pct(default['recall@5'].high) ~ ', ' ~ retrieval.n ~ ' questions, default retriever') }}
+{% else %}
+{{ result_row('Retrieval recall@5', none, none, none, 'Waiting for question review', 'pending') }}
+{% endif %}
+{{ rate_row('Answer correctness', summary.generation.answer_correctness if summary and summary.generation else none, 'Waiting for question review') }}
+{{ rate_row('Agreement with human labels', summary.faithfulness.agreement if summary and summary.faithfulness else none, 'Waiting for human labels') }}
+{%- endmacro %}
+
+{#- Overview tables: the full comparison for one corpus. -#}
+{% macro golden_tables(summary, label) -%}
+{% set retrieval = summary.retrieval if summary else none %}
+<p class="eval-table-title">Retrieval, {{ label }}{% if retrieval %}, {{ retrieval.n }} questions{% endif %}</p>
+<div class="eval-table-wrap" tabindex="0" role="region" aria-label="Retrieval results, {{ label }}">
+    <table class="eval-table eval-table--wide">
+        <caption class="sr-only">Retrieval, {{ label }}{% if retrieval %}, {{ retrieval.n }} questions{% endif %}</caption>
+        <thead>
+            <tr>
+                <th scope="col">Retriever</th>
+                <th scope="col">Recall@5</th>
+                <th scope="col">MRR</th>
+                <th scope="col">nDCG@5</th>
+                <th scope="col">Recall@5 minus dense, paired</th>
+                <th scope="col">p50 ms</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if retrieval %}
+            {% for v in retrieval.variants %}
+            <tr>
+                <th scope="row">{{ v.name }}{% if v.name == retrieval.default %} (default){% endif %}</th>
+                <td>{{ dec(v['recall@5'].mean) }} <small>{{ dec(v['recall@5'].low) }} to {{ dec(v['recall@5'].high) }}</small></td>
+                <td>{{ dec(v.mrr.mean) }} <small>{{ dec(v.mrr.low) }} to {{ dec(v.mrr.high) }}</small></td>
+                <td>{{ dec(v['ndcg@5'].mean) }} <small>{{ dec(v['ndcg@5'].low) }} to {{ dec(v['ndcg@5'].high) }}</small></td>
+                <td>{% if v['diff_recall@5'] %}{{ '%+.2f' | format(v['diff_recall@5'].mean) }} <small>{{ '%+.2f' | format(v['diff_recall@5'].low) }} to {{ '%+.2f' | format(v['diff_recall@5'].high) }}</small>{% else %}baseline{% endif %}</td>
+                <td>{{ '%.0f' | format(v.p50_ms) }}</td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="6" class="eval-table__pending">Results appear here once the questions are reviewed.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% set g = summary.generation if summary else none %}
+{% set f = summary.faithfulness if summary else none %}
+<p class="eval-table-title">Answers and the faithfulness check, {{ label }}</p>
+<div class="eval-table-wrap" tabindex="0" role="region" aria-label="Answer and faithfulness check results, {{ label }}">
+    <table class="eval-table">
+        <caption class="sr-only">Answers and the faithfulness check, {{ label }}</caption>
+        <thead>
+            <tr><th scope="col">Measure</th><th scope="col">Result</th><th scope="col">95% interval</th></tr>
+        </thead>
+        <tbody>
+            {% for name, row, waiting in [
+                ('Answer correctness', g.answer_correctness if g else none, 'question review'),
+                ('Refusal on unanswerable questions', g.refusal_accuracy if g else none, 'question review'),
+                ('Routing to clarify or FDA lookup', g.routing_accuracy if g else none, 'question review'),
+                ('Agreement with human labels', f.agreement if f else none, 'human labels'),
+                ('Unsupported answers the check passed', f.false_pass if f else none, 'human labels'),
+                ('Supported answers the check refused', f.false_refusal if f else none, 'human labels'),
+                ('Labeller agreement with a second pass', f.self_agreement if f else none, 'a second labelling pass'),
+            ] %}
+            <tr>
+                <th scope="row">{{ name }}</th>
+                {% if row %}
+                <td>{{ pct(row.rate) }} <small>{{ row.k }} of {{ row.n }}</small></td>
+                <td>{{ pct(row.low) }} to {{ pct(row.high) }}</td>
+                {% else %}
+                <td colspan="2" class="eval-table__pending">Waiting for {{ waiting }}</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if f and f.kappa is not none %}
+<p class="eval-note">Cohen's kappa between the check and the human labels: {{ dec(f.kappa) }}. A label of partially supported counts as not supported.</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro injection_table(summary) -%}
+{% set inj = summary.injection if summary else none %}
+{% if inj and inj.paths %}
+<p class="eval-table-title">Poisoned note test, {{ inj.questions }} questions on three fabricated notes that hide an instruction</p>
+<div class="eval-table-wrap" tabindex="0" role="region" aria-label="Poisoned note test">
+    <table class="eval-table">
+        <caption class="sr-only">Poisoned note test, {{ inj.questions }} questions on three fabricated notes that hide an instruction</caption>
+        <thead>
+            <tr><th scope="col">Generator</th><th scope="col">Canary in the final answer</th><th scope="col">Check passed that answer</th></tr>
+        </thead>
+        <tbody>
+            {% for p in inj.paths %}
+            <tr>
+                <th scope="row">{{ p.name }}</th>
+                <td>{% if p.canary_final %}{{ p.canary_final.k }} of {{ p.canary_final.n }} <small>{{ pct(p.canary_final.low) }} to {{ pct(p.canary_final.high) }}</small>{% else %}no exposed questions{% endif %}</td>
+                <td>{% if p.gate_passed %}{{ p.gate_passed.k }} of {{ p.gate_passed.n }}{% else %}none to judge{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="eval-note">The check compares an answer with the retrieved passages. The planted instruction sits inside a passage, so an answer that repeats it still looks supported. Nine questions is a small sample, and the Gemini count can change between runs.</p>
+{% endif %}
+{%- endmacro %}

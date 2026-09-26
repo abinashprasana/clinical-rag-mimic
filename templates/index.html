@@ -1,3 +1,4 @@
+{% import '_eval_results.html' as ev %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -197,16 +198,17 @@
                         <small>Not a benchmark vs. the local pipeline</small>
                         {% else %}
                         <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}&mdash;{% endif %}</strong>
-                        <small>Fixed structural question set</small>
+                        <small>Original 10 question smoke test</small>
                         {% endif %}
                     </div>
                 </section>
                 <div class="results-figure" data-viz="results" aria-label="Measured pipeline comparison">
                     <div class="results-figure__legend" aria-hidden="true" data-ui-copy>
-                        <span>Accuracy</span>
-                        <span>Latency</span>
+                        <span>Result</span>
+                        <span>Detail</span>
                     </div>
                     <div class="dataset-results">
+                        <p class="results-group">Original smoke test (10 questions, keyword match)</p>
                         <div class="dataset-result dataset-result--real">
                             <span>Real dataset</span>
                             <strong>70%</strong>
@@ -219,9 +221,11 @@
                             <div class="result-plot" aria-hidden="true"><i class="result-plot__accuracy"></i><b class="result-plot__latency"></b></div>
                             <small>Fabricated notes, ~4.6s per question</small>
                         </div>
+                        {{ ev.golden_rows(eval_demo, 'Golden question set, fabricated demo notes') }}
+                        {% if eval_real %}{{ ev.golden_rows(eval_real, 'Golden question set, real notes') }}{% endif %}
                     </div>
                 </div>
-                <p class="dataset-results-note">Both figures come from the same 10-question keyword-hit check, run once against each dataset so both paths are actually measured, not just the one currently configured. {% if public_demo %}This deployment's own version of that check, run through the Gemini API against the fabricated notes, is the 10/10 canonical checks above, reported as a raw count rather than a percentage so it doesn't read as beating either number here.{% else %}It's a smoke test confirming the pipeline retrieves and answers correctly end to end, not a measure of clinical accuracy.{% endif %}</p>
+                <p class="dataset-results-note">The first two rows come from the original 10 question keyword check, run once against each dataset. The golden question set scores retrieval and answers separately, and each of its rows shows a 95% interval. {% if public_demo %}Those rows measure the local FLAN-T5 pipeline on the same ten fabricated notes. This site answers through the Gemini API, and its own run of the 10 question check is the 10/10 canonical checks above.{% else %}The keyword check only confirms the pipeline answers end to end, and says nothing about clinical accuracy.{% endif %}</p>
             </section>
 
             <section class="overview-section case-chapter boundary-chapter" id="case-boundaries" aria-labelledby="landing-boundaries-title" data-case-section="boundaries" data-reveal tabindex="-1">
@@ -247,7 +251,7 @@
                         <ul>
                             <li>It doesn't determine diagnosis or treatment, since a qualified clinician reviews the record.</li>
                             <li>{% if public_demo %}This deployment runs on ten fabricated notes; no real patient data is used publicly.{% else %}Retrieval ranks text similarity, not clinical importance or correctness.{% endif %}</li>
-                            <li>Evaluation uses a small, fixed question set, not a general-purpose benchmark.</li>
+                            <li>Evaluation uses 50 questions on ten fabricated notes, and one person labels the answers.</li>
                         </ul>
                     </div>
                 </div>
@@ -584,7 +588,7 @@
                                 <small>Not a benchmark vs. the local pipeline</small>
                                 {% else %}
                                 <strong>{% if accuracy_pct is not none %}{{ accuracy_pct }}%{% else %}—{% endif %}</strong>
-                                <small>Fixed structural question set</small>
+                                <small>Original 10 question smoke test</small>
                                 {% endif %}
                             </div>
                         </section>
@@ -633,7 +637,7 @@
                                 {% if public_demo %}
                                 <p>This deployment searches only ten fully fabricated discharge records. It retrieves and generates via the Gemini API rather than loading models in-process, and falls back to a simpler offline method if Gemini is unavailable. It publishes no MIMIC-derived text, index, or result, and its accuracy is measured only against this app's own small fixed question set, not a general-purpose benchmark.</p>
                                 {% elif accuracy_pct is not none %}
-                                <p>{{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set. Latency varies with local hardware and model state.</p>
+                                <p>Original smoke test: {{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set. Latency varies with local hardware and model state.</p>
                                 {% else %}
                                 <p>No evaluation result is currently available.</p>
                                 {% endif %}
@@ -642,22 +646,29 @@
                                 {% if public_demo %}
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_accuracy.png') }}" width="1782" height="658" alt="Public demo evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for this app's own fixed 10-question set, measured against the actual Gemini-backed retrieval and generation deployed here (with offline fallback). Not a general-purpose benchmark.</figcaption>
+                                    <figcaption id="accuracy-summary"><strong>Original smoke test, accuracy.</strong> Keyword-hit results for this app's own fixed 10-question set, measured against the actual Gemini-backed retrieval and generation deployed here (with offline fallback). Not a general-purpose benchmark.</figcaption>
                                 </figure>
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Public demo evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
-                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same fabricated-record evaluation; answers come from the Gemini API, so timings include that network call.</figcaption>
+                                    <figcaption id="latency-summary"><strong>Original smoke test, latency.</strong> Recorded response times for the same fabricated-record evaluation; answers come from the Gemini API, so timings include that network call.</figcaption>
                                 </figure>
                                 {% else %}
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='eval_accuracy.png') }}" width="1782" height="658" alt="Evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Accuracy.</strong> Keyword-hit results for the fixed structural question set. This evaluation does not establish clinical validity.</figcaption>
+                                    <figcaption id="accuracy-summary"><strong>Original smoke test, accuracy.</strong> Keyword-hit results for the fixed structural question set. This evaluation does not establish clinical validity.</figcaption>
                                 </figure>
                                 <figure class="analysis-figure">
                                     <img data-src="{{ url_for('static', filename='eval_latency.png') }}" width="1782" height="658" alt="Evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
-                                    <figcaption id="latency-summary"><strong>Latency.</strong> Recorded response times for the same evaluation run; local performance depends on hardware and runtime conditions.</figcaption>
+                                    <figcaption id="latency-summary"><strong>Original smoke test, latency.</strong> Recorded response times for the same evaluation run; local performance depends on hardware and runtime conditions.</figcaption>
                                 </figure>
                                 {% endif %}
+                            </div>
+                            <div class="eval-results">
+                                <h3>Golden question set</h3>
+                                <p>Retrieval and answers are scored separately, on reviewed questions only. Retrieval intervals come from a bootstrap over questions, and rate intervals are Wilson intervals, all at 95%. {% if public_demo %}These numbers measure the local FLAN-T5 pipeline on the ten fabricated notes this site searches.{% else %}Real note results show only when a local run has written its aggregate summary.{% endif %}</p>
+                                {{ ev.golden_tables(eval_demo, 'fabricated demo notes') }}
+                                {% if eval_real %}{{ ev.golden_tables(eval_real, 'real notes') }}{% endif %}
+                                {{ ev.injection_table(eval_demo) }}
                             </div>
                             {% if public_demo %}
                             <div class="boundary-columns">
@@ -692,7 +703,7 @@
                                     <ul>
                                         <li>The generator is general-purpose and may paraphrase, omit, or misstate information.</li>
                                         <li>The source-support check uses content-word and numeric overlap, not clinical verification.</li>
-                                        <li>Evaluation uses a small structural question set and rigid keyword matching.</li>
+                                        <li>Answer correctness is still scored by keyword assertions, on a question set that covers ten notes.</li>
                                     </ul>
                                 </div>
                             </div>

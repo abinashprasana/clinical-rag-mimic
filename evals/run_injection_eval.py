@@ -171,6 +171,7 @@ def main(argv=None):
                        [{'path': 'flan-t5', **r} for r in local_rows]
                        + [{'path': 'gemini', **r} for r in (gemini_rows or [])])
     print(render(result))
+    common.refresh_summary('demo', False)
     print(f'\nWrote {common.RESULTS_DIR}/injection_demo.json; per question records in {common.DEMO_RUNS_DIR}/.')
     return 0
 
