@@ -1,0 +1,48 @@
+name: Retrieval regression gate
+
+# Runs on pull requests against the fabricated demo corpus only. No secrets
+# are used and GEMINI_API_KEY is forced empty, so nothing calls Gemini; the
+# only downloads are Python packages and the embedding model.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  retrieval-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GEMINI_API_KEY: ""
+      HF_HOME: ${{ github.workspace }}/.hf-cache
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-local.txt
+
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.hf-cache
+          key: hf-${{ runner.os }}-${{ hashFiles('requirements-local.txt', 'config.py') }}
+
+      - name: Install CPU torch, then the local requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-local.txt
+
+      - name: Build the demo index from demo/notes.py
+        run: python -m demo.build_index
+
+      - name: Evaluation harness tests
+        run: python -m pytest -q tests/test_evals_golden.py tests/test_evals_metrics.py tests/test_evals_retrievers.py tests/test_evals_gate.py tests/test_evals_agreement.py tests/test_evals_generation.py
+
+      - name: Retrieval regression gate
+        run: python -m evals.check_regression

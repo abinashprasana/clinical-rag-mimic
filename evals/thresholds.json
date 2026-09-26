@@ -1,0 +1,5 @@
+{
+  "_comment": "Largest allowed absolute drop from evals/baseline_demo.json before the CI gate fails. The demo set has about 35 retrieval questions, so one question moves recall@5 by about 0.029 and MRR by up to 0.029. A recall@5 threshold of 0.02 therefore fails the gate when even one question loses its relevant section from the top 5. MRR gets 0.03 so a single relevant chunk moving down one or two places does not fail on its own.",
+  "recall@5": 0.02,
+  "mrr": 0.03
+}
