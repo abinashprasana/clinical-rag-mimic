@@ -142,12 +142,26 @@ def make_generate_node(local_generator):
     return generate_node
 
 
+# Evaluation hook (evals/run_generation_eval.py): each callable is notified
+# after every faithfulness check as observer(question, draft, reflection,
+# attempt), with copies of the values. Empty in normal operation, and nothing
+# it does is written back into the agent state.
+_reflection_observers = []
+
+
 def reflect_node(state: AgentState) -> AgentState:
     """Local faithfulness check -- does the draft answer only make claims
     supported by the retrieved chunks? Fully local, never calls Gemini; this
     is the real safety gate (see agent/reflection.py)."""
     state['step_count'] += 1
     state['reflection'] = local_reflect(state.get('draft_answer'), state.get('retrieved_chunks', []))
+    attempt = 2 if state.get('reflection_regenerated') else 1
+    for observer in _reflection_observers:
+        observer(
+            state['question'], state.get('draft_answer'),
+            {**state['reflection'], 'unsupported_claims': list(state['reflection']['unsupported_claims'])},
+            attempt,
+        )
     return state
 
 
