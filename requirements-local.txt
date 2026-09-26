@@ -15,4 +15,6 @@ torch
 waitress
 pytest
 langgraph
+# Evaluation harness (evals/): BM25 control and RRF hybrid retrievers.
+rank-bm25
 google-genai

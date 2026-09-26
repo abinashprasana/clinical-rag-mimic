@@ -59,12 +59,14 @@ def _header_boost(chunk_text, query_words, weight=0.15):
     overlap = len(header_words & query_words) / len(header_words)
     return weight * overlap
 
-def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT_TOP_K):
+def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT_TOP_K,
+                    header_boost=True):
     """Returns up to k chunks with their similarity score and source
     subject_id/hadm_id, so answers can be cited back to a real note.
     Near-duplicate passages (from overlapping chunk windows) are dropped in
     favor of the higher-scoring copy, so the model -- and the evidence
-    inspector -- never sees the same passage twice."""
+    inspector -- never sees the same passage twice. header_boost=False ranks
+    by raw similarity only; evals/retrievers.py uses it to measure the boost."""
     query_vec = model.encode([question]).astype('float32')
     # FAISS FIX: Normalise query for Inner Product
     faiss.normalize_L2(query_vec)
@@ -78,7 +80,8 @@ def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT
     # "score" stays the raw similarity so it keeps meaning what it says.
     # Keep this lightweight header signal instead of adding another model-
     # backed re-ranking stage, which would increase latency and dependencies.
-    candidates.sort(key=lambda c: c[1] + _header_boost(chunks[c[0]], query_words), reverse=True)
+    if header_boost:
+        candidates.sort(key=lambda c: c[1] + _header_boost(chunks[c[0]], query_words), reverse=True)
 
     results = []
     kept_words_list = []
