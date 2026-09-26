@@ -57,16 +57,19 @@ ANSWERABILITY_CHECK = _bool('ANSWERABILITY_CHECK', False)
 # How record answers are produced (chosen on the evaluation dev split, see
 # evals/tune_hybrid.py):
 #   'hybrid'      split a two-part question into parts and retrieve each; a
-#                 part whose best evidence is a numbered list (a medication
-#                 list) is answered with that list verbatim, any other part by
-#                 the local generator; refuse only when the answerability
+#                 part whose top ranked passage or best evidence is a numbered
+#                 list (a medication list) is answered with that list
+#                 verbatim, any other part by the local generator; refuse
+#                 only when the answerability
 #                 judge says no to every part AND no part's evidence scores
 #                 at least EXTRACTIVE_THRESHOLD with the cross encoder.
 #   'generative'  the original path: the local generator writes the answer
 #                 from the retrieved passages.
 ANSWER_MODE = os.getenv('ANSWER_MODE', 'hybrid')
 EXTRACTIVE_RERANKER = os.getenv('EXTRACTIVE_RERANKER', 'cross-encoder/ms-marco-MiniLM-L-6-v2')
-EXTRACTIVE_THRESHOLD = float(os.getenv('EXTRACTIVE_THRESHOLD', 0.0))
+# Chosen in round 2 on the 100 original questions (results were identical
+# from -8 to -6); see evals/tune_round2.py.
+EXTRACTIVE_THRESHOLD = float(os.getenv('EXTRACTIVE_THRESHOLD', -7.0))
 ANSWERABILITY_JUDGE_MODEL = os.getenv('ANSWERABILITY_JUDGE_MODEL', 'google/flan-t5-large')
 EXTRACTIVE_TOP_CHUNKS = int(os.getenv('EXTRACTIVE_TOP_CHUNKS', 2))
 # flan-t5's encoder truncates at 512 tokens regardless of model size (base or

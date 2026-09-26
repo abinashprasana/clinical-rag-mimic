@@ -152,7 +152,8 @@ def main(argv=None):
         'by_category': by_category(records_by_variant),
     }
     agg_dir, records_dir = common.output_dirs(args.corpus, args.include_unreviewed)
-    stem = (f'retrieval_{args.corpus}' + ('' if args.split == 'all' else f'_{args.split}')
+    file_tag = '' if not args.file else '_' + os.path.basename(args.file).split('.')[0]
+    stem = (f'retrieval_{args.corpus}' + file_tag + ('' if args.split == 'all' else f'_{args.split}')
             + ('.unreviewed' if args.include_unreviewed else ''))
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)
     with open(os.path.join(agg_dir, stem + '.md'), 'w', encoding='utf-8', newline='\n') as f:
@@ -162,7 +163,7 @@ def main(argv=None):
         [{'variant': v, **r} for v, recs in records_by_variant.items() for r in recs],
     )
     print(render(result, 'text'))
-    common.refresh_summary(args.corpus, args.include_unreviewed or args.split != 'all')
+    common.refresh_summary(args.corpus, args.include_unreviewed or args.split != 'all' or bool(args.file))
     print(f'\nWrote {agg_dir}/{stem}.json and .md; per question records in {records_dir}/.')
     return 0
 

@@ -37,20 +37,20 @@ def main():
     questions = [q for q in select(load_questions(GOLDEN_FILES['demo']), split='dev')
                  if q['expected_behavior'] in ('answer', 'refuse')]
 
+    import json
     import os
-    import pickle
-    cache = os.path.join('evals', 'runs', 'demo', 'tune_hybrid_cache.pkl')
+    cache = os.path.join('evals', 'runs', 'demo', 'tune_hybrid_cache.json')
     if os.path.exists(cache):
-        with open(cache, 'rb') as f:
-            per_question = pickle.load(f)
+        with open(cache, encoding='utf-8') as f:
+            per_question = json.load(f)
         questions = [q for q in questions if q['id'] in per_question]
     else:
         per_question = compute(questions, corpus, model, index, reranker, generator, judges,
                                decompose, retrieve_chunks, best_unit, is_list_unit, generate_answer,
                                is_answerable, config)
         os.makedirs(os.path.dirname(cache), exist_ok=True)
-        with open(cache, 'wb') as f:
-            pickle.dump(per_question, f)
+        with open(cache, 'w', encoding='utf-8') as f:
+            json.dump(per_question, f)
     report(questions, per_question, judges)
     return 0
 

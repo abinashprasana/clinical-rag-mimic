@@ -120,8 +120,9 @@ def extractive_answer(parts_with_chunks, threshold=None, reranker=None):
 
 def hybrid_answer(part_evidence, generator, judge=None, reranker=None, threshold=None):
     """Answer from [(part question, retrieved chunks)]. Returns (answer, refused).
-    A part whose best unit is a numbered list is answered with the list
-    verbatim; any other part is answered by the generator from its passages.
+    A part whose top ranked passage or best unit is a numbered list is
+    answered with that list verbatim; any other part is answered by the
+    generator from its passages.
     The whole question is refused only when the judge says no to every part
     and no part's best unit reaches the threshold."""
     from core.generation import generate_answer, get_judge, is_answerable
@@ -134,7 +135,12 @@ def hybrid_answer(part_evidence, generator, judge=None, reranker=None, threshold
         found = best_unit(part, chunks, reranker)
         best_scores.append(found[0] if found else float('-inf'))
         judged_answerable.append(is_answerable(part, chunks, judge))
-        if found and is_list_unit(found[1]):
+        top_body = _HEADER.sub('', chunks[0]['chunk_text']).strip()
+        if is_list_unit(top_body):
+            # The top ranked passage is a list (retrieval MRR is about 0.85
+            # on the test split): quote it whole.
+            texts.append(top_body if top_body.endswith('.') else top_body + '.')
+        elif found and is_list_unit(found[1]):
             texts.append(found[1] if found[1].endswith('.') else found[1] + '.')
         else:
             texts.append(generate_answer(part, chunks[:config.GENERATION_TOP_K], generator)[0])
