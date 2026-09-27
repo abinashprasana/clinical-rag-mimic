@@ -76,6 +76,13 @@ EXTRACTIVE_TOP_CHUNKS = int(os.getenv('EXTRACTIVE_TOP_CHUNKS', 2))
 # large); leaves headroom for the instruction template + question wrapped
 # around the retrieved-chunk context.
 MAX_INPUT_TOKENS = int(os.getenv('MAX_INPUT_TOKENS', 480))
+# Passage budget for chat (decoder only) generator models such as Qwen, which
+# read far more than FLAN-T5's 512 token encoder; 3000 fits all top 5
+# passages. core/generation.py picks the model type from its config.
+GENERATION_CONTEXT_TOKENS = int(os.getenv('GENERATION_CONTEXT_TOKENS', 3000))
+# 'float32' is the safe CPU default; 'bfloat16' halves memory on CPUs that
+# support it, usually at some speed cost.
+GENERATOR_DTYPE = os.getenv('GENERATOR_DTYPE', 'float32')
 
 # --- Agent orchestration / Gemini (routing, clarification, structural reflection only —
 #     never receives raw clinical note text; see reflect_structure_node design notes) ---
