@@ -1,0 +1,125 @@
+{
+  "meta": {
+    "corpus": "demo",
+    "reviewed_only": true,
+    "n_questions": 100,
+    "run_at": "2026-09-27T20:13:35+00:00",
+    "git_commit": "0d2c743"
+  },
+  "generator": "Qwen/Qwen3-1.7B",
+  "answer_mode": "hybrid",
+  "judge": "Qwen/Qwen3-1.7B",
+  "routing": "offline keyword rules; openFDA stubbed",
+  "scores": {
+    "headline": {
+      "answer_correctness": {
+        "k": 54,
+        "n": 70,
+        "rate": 0.7714285714285715,
+        "low": 0.6604966840601509,
+        "high": 0.8541193677742756
+      },
+      "refusal_accuracy": {
+        "k": 15,
+        "n": 16,
+        "rate": 0.9375,
+        "low": 0.7167126242970107,
+        "high": 0.9888806552353576
+      },
+      "routing_accuracy": {
+        "k": 12,
+        "n": 14,
+        "rate": 0.8571428571428571,
+        "low": 0.6005862050302965,
+        "high": 0.9599060787285351
+      },
+      "routing_clarify": {
+        "k": 4,
+        "n": 6,
+        "rate": 0.6666666666666666,
+        "low": 0.299993315138392,
+        "high": 0.9032285888942195
+      },
+      "routing_fda": {
+        "k": 8,
+        "n": 8,
+        "rate": 1.0,
+        "low": 0.6755924351161198,
+        "high": 1.0
+      }
+    },
+    "per_category": {
+      "ambiguous": {
+        "k": 4,
+        "n": 6,
+        "rate": 0.6666666666666666,
+        "low": 0.299993315138392,
+        "high": 0.9032285888942195
+      },
+      "discharge_followup": {
+        "k": 5,
+        "n": 6,
+        "rate": 0.8333333333333334,
+        "low": 0.43649717781352987,
+        "high": 0.9699466302516935
+      },
+      "fda_dosage": {
+        "k": 8,
+        "n": 8,
+        "rate": 1.0,
+        "low": 0.6755924351161198,
+        "high": 1.0
+      },
+      "medication_list": {
+        "k": 15,
+        "n": 16,
+        "rate": 0.9375,
+        "low": 0.7167126242970107,
+        "high": 0.9888806552353576
+      },
+      "multi_section": {
+        "k": 9,
+        "n": 12,
+        "rate": 0.75,
+        "low": 0.46769466506643426,
+        "high": 0.9110583316059453
+      },
+      "negation": {
+        "k": 5,
+        "n": 12,
+        "rate": 0.4166666666666667,
+        "low": 0.19326031365875665,
+        "high": 0.6804886874504503
+      },
+      "single_fact": {
+        "k": 20,
+        "n": 24,
+        "rate": 0.8333333333333334,
+        "low": 0.6414692935030095,
+        "high": 0.9332132367136705
+      },
+      "unanswerable": {
+        "k": 15,
+        "n": 16,
+        "rate": 0.9375,
+        "low": 0.7167126242970107,
+        "high": 0.9888806552353576
+      }
+    },
+    "gate": {
+      "drafts_checked": 88,
+      "first_check_passed": 82,
+      "retried": 6,
+      "retry_changed_draft": 0,
+      "outcomes": {
+        "refused_by_gate": 6,
+        "shown": 63,
+        "model_refusal": 19,
+        "fda_card": 8,
+        "clarified": 4
+      },
+      "answerable_refused_by_gate": 6
+    },
+    "mean_latency_s": 31.1169186759938
+  }
+}
