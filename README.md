@@ -52,110 +52,112 @@ The interface opens on a case-study page covering what the system is, the two da
 
 ## 🧪 Evaluation
 
-The original evaluation was a 10 question keyword check. One question moved the score by 10 points, so it could not separate a real change from noise. It also mixed retrieval and generation into one number, and it penalised correct answers that used different words. It is now a golden set of 50 questions across 8 question types on the fabricated demo notes, scored with retrieval metrics and generation metrics separately, with bootstrap confidence intervals. A set of about 100 questions on the real notes uses the same format and stays on my machine.
-
-The 50 demo questions are drafts until I review them, and only reviewed questions are ever reported. The retrieval, generation and faithfulness tables below say TODO until that review is done and the runs are repeated. Development runs over the drafts are possible with `--include-unreviewed`; they print an UNREVIEWED banner and write outside `evals/results/`.
+The original evaluation was a 10 question keyword check. One question moved the score by 10 points, so it could not separate a real change from noise, and it mixed retrieval and generation into one number. It is now a golden set of 140 questions across 8 question types on the fabricated demo notes, scored with retrieval metrics and generation metrics separately, with confidence intervals on every number. A set of about 100 questions on the real notes uses the same format and stays on my machine.
 
 Everything lives in `evals/`, separate from `core/evaluation.py`, which stays as the original smoke test. Rules that hold for every run:
 
 - Real data results go to `outputs/eval/` or a `*.local.*` file, both ignored by git. Only aggregate numbers from real runs appear here.
 - Evaluation runs are offline. Gemini is switched off, routing uses the local keyword rules, and the openFDA lookup is replaced by a stub, since only the routing decision is scored. A real data run refuses to start while `GEMINI_API_KEY` is set.
-- The golden sets define relevance by note and section header (for example admission 29000002, Discharge Medications), so a change to chunk size does not invalidate them.
+- Relevance is defined by note and section header (for example admission 29000002, Discharge Medications), so a change to chunk size does not invalidate the gold labels.
 
-### Original smoke test
+### How the numbers were kept honest
 
-| Metric | Real dataset (MIMIC-IV-Note v2.2) | Synthetic demo |
-|---|---|---|
-| Original smoke test (10 questions, keyword match) | 70% (7/10) | 80% (8/10) |
-| Mean latency | ~3.4s per question | ~4.6s per question |
+The 140 questions come in two groups. The first 100 (`evals/golden/demo_questions.jsonl`) were used to find and tune improvements, split 50/50 into a dev half and a test half before any tuning (`evals/golden/demo_split.json`). The other 40 (`evals/golden/demo_holdout.jsonl`) were written and committed before the last round of changes and were scored exactly once afterwards. The headline numbers below come from those 40. I wrote every question and approved them in bulk without a line by line review; each record says so in its `notes` field.
 
-These runs call retrieval and generation directly, so routing, the faithfulness check and the refusal never took part in them. The demo figure was rerun on 26 September 2026 by `python -m evals.run_generation_eval --corpus demo` and again came out at 8/10. The real figure comes from an earlier local run under credentialed PhysioNet access; no note text, answer or passage from it is in this repository.
+### Headline results (40 question holdout)
 
-### Retrieval
+| Measure | Before the changes | After, local agent | After, live public app (Gemini) |
+|---|---|---|---|
+| Retrieval recall@5 | 0.701 (0.540 to 0.851) | 0.908 (0.810 to 0.983) | 0.923 (0.845 to 0.982) |
+| Retrieval MRR | 0.428 (0.286 to 0.561) | 0.865 (0.761 to 0.948) | not measured |
+| Answer correctness | 34%, 10 of 29 (20% to 53%) | 69%, 20 of 29 (51% to 83%) | 61%, 17 of 28 (42% to 76%) |
+| Refusal when the notes lack the answer | 17%, 1 of 6 (3% to 56%) | 83%, 5 of 6 (44% to 97%) | 100%, 6 of 6 (61% to 100%) |
+| Routing to clarify or the FDA label | 100%, 5 of 5 | 100%, 5 of 5 (57% to 100%) | not scored |
 
-`python -m evals.run_retrieval_eval --corpus demo` scores five retrievers over the same chunks the app uses:
+Intervals are 95%: bootstrap over questions for retrieval, Wilson for rates. The paired difference in recall@5 between the new and the previous retrieval on the holdout is 0.207 (0.034 to 0.414), so the retrieval gain is real on questions that were never used for tuning. The "before" column is the code as it was before these changes (commit ad0262a), run on the same 40 questions. On them, answer correctness went from 34% to 69% and refusal from 1 in 6 to 5 in 6. 69% is short of the 80% I aimed for, and the intervals are wide because the holdout is small.
 
-| Variant | What it does |
-|---|---|
-| `dense` | the current FAISS retrieval with the header boost (the app default) |
-| `dense_no_boost` | the same code path with the header boost switched off |
-| `bm25` | Okapi BM25 over the raw chunk text, with negation words kept |
-| `hybrid_rrf` | dense and BM25 merged by reciprocal rank fusion (k = 60, equal weights) |
-| `hybrid_rrf_rerank` | the fused top 20 reranked by `cross-encoder/ms-marco-MiniLM-L-6-v2` (Apache 2.0, runs locally), then the top 5 |
+On the 100 original questions, which were used to choose the changes and therefore overstate them, the local agent now scores 61 of 70 on answer correctness (87%, 77% to 93%) and 14 of 16 on refusal (88%), against 36 of 70 (51%) and 4 of 16 (25%) before. The holdout above is the fairer measure.
 
-It reports recall@1, recall@3, recall@5, MRR and nDCG@5 with 95% bootstrap intervals (1000 resamples, fixed seed), overall and per question type, plus retrieval latency at p50 and p95. Each variant also gets a paired bootstrap interval on its recall@5 difference from `dense`, and a note hit@5 column that counts answers from the right patient but the wrong section.
+### What changed
 
-The demo corpus is 10 notes and 101 chunks, so recall@5 saturates and differences between variants are small. That is why the real set matters, and why intervals are reported. A variant whose interval overlaps another's is treated as tied.
+Each change was chosen on the dev half and checked on questions that took no part in choosing it.
 
-| Variant | recall@1 | recall@3 | recall@5 | MRR | nDCG@5 | p50 / p95 ms |
-|---|---|---|---|---|---|---|
-| Demo, reviewed questions | TODO | TODO | TODO | TODO | TODO | TODO |
-| Real notes | TODO | TODO | TODO | TODO | TODO | TODO |
+1. **Contextual index text.** Each chunk is embedded with a short line naming its note's presenting problem and primary diagnosis in front of it (Anthropic, contextual retrieval, 2024; HiQA, arXiv:2402.01767). A medication list never names the condition it treats, so before this change a question about "the pneumonia patient's medications" often found the right patient but the wrong section. The stored and displayed chunk text is unchanged. `CONTEXTUAL_INDEX=false` switches it off.
+2. **Stemmed header matching.** The header boost now compares word stems, so "discharged" matches "Discharge Medications". `RETRIEVAL_STEM_HEADERS=false` switches it off.
+3. **Hybrid answering.** A two part question is split and each part retrieved on its own (decomposed prompting, Khot et al., ICLR 2023). A part whose top passage is a numbered list, such as a medication list, is answered with that list word for word, because FLAN-T5 tended to stop after the first drug. Other parts are answered by FLAN-T5. `ANSWER_MODE=generative` restores the original path.
+4. **Refusing when the notes lack the answer.** A question is refused when a FLAN-T5-large yes/no check says no part can be answered from the passages and a local cross encoder gives the best evidence sentence a low score. The yes/no prompt states that a recorded absence such as "no chest pain" counts as an answer; without that line it refused most negation questions.
 
-TODO: the comparison sentence and any recommendation for a new default, once reviewed numbers exist. The app default stays `dense` until I decide otherwise.
+Retrieval, the switch to hybrid answering and the refusal rule were each tried against alternatives that lost: BM25, reciprocal rank fusion, a cross encoder reranker, answering with FLAN-T5-large, fewer passages in the prompt, answering only with extracted sentences, and a relevance threshold alone. `evals/tune_retrieval.py`, `evals/tune_hybrid.py` and `evals/tune_round2.py` reproduce those comparisons.
 
-### Generation
+### Retrieval comparison (holdout)
 
-`python -m evals.run_generation_eval --corpus demo` runs each question through the LangGraph agent with FLAN-T5 and scores three things separately, each with a 95% Wilson interval:
+| Variant | recall@1 | recall@5 | MRR | recall@5 minus dense, paired |
+|---|---|---|---|---|
+| `dense` (app default: contextual index, stemmed header boost) | 0.718 | 0.908 | 0.865 | baseline |
+| `dense_legacy` (the previous behaviour) | 0.218 | 0.701 | 0.428 | -0.207 (-0.414 to -0.034) |
+| `dense_no_boost` | 0.649 | 0.954 | 0.797 | 0.046 (0.000 to 0.103) |
+| `bm25` | 0.287 | 0.322 | 0.322 | -0.586 (-0.776 to -0.379) |
+| `hybrid_rrf` | 0.339 | 0.557 | 0.441 | -0.351 (-0.534 to -0.167) |
+| `hybrid_rrf_rerank` (`cross-encoder/ms-marco-MiniLM-L-6-v2`, Apache 2.0) | 0.167 | 0.523 | 0.345 | -0.385 (-0.586 to -0.178) |
 
-- **Answer correctness**: the answer is shown, contains every `must_contain` term and none of the `must_not_contain` terms.
-- **Refusal accuracy**: an unanswerable question ends in a refusal, either the model's own or the faithfulness check's.
-- **Routing accuracy**: ambiguous questions reach the clarify branch and drug dosage questions reach the FDA label branch.
+`dense_no_boost` had the highest recall@5, but its paired interval touches zero and its MRR is lower, so I treat it as tied with `dense`. Every retriever found the right note for every question (note hit@5 of 1.000); the differences are all about picking the right section. The demo corpus is 10 notes and 101 chunks, so these numbers say more about ranking sections within a note than about search across thousands of notes.
 
-| Measure | Demo, reviewed questions | Real notes |
-|---|---|---|
-| Answer correctness | TODO | TODO |
-| Refusal accuracy | TODO | TODO |
-| Routing accuracy | TODO | TODO |
-| Original smoke test (10 questions, keyword match) | 80% (8/10) | 70% (7/10) |
+### Where it still fails
 
-The run also records what the faithfulness check did with each first draft, and whether the one allowed retry changed anything. With FLAN-T5 and greedy decoding the retry sends the same prompt and gets the same draft back, so locally it cannot change the outcome.
+On the holdout, the local agent answered 1 of 5 negation questions correctly ("Did the patient still have a fever at discharge?"), and the answerability check still refuses some of them. Two part questions were right 3 times out of 5. The live Gemini app mixes up patients on some questions, because the public runtime keeps its own Gemini embedding retrieval and did not get the contextual index; it also loses some points to the keyword assertions, which do not accept a correct paraphrase such as "insulin glargine at a dose of 20 units".
 
 ### Faithfulness check versus human labels
 
-`python -m evals.label_tool --corpus demo` shows the question, the retrieved passages and the first draft, and records my label: supported, partially supported or unsupported. It never shows the check's own decision. Labels store the question id, a hash of the draft, the round and a timestamp, and never the text. `--relabel 20` repeats a fixed random 20 items for a second pass on another day.
+`python -m evals.label_tool --corpus demo` shows the question, the retrieved passages and the first draft, and records my label: supported, partially supported or unsupported. It never shows the check's own decision. `python -m evals.faithfulness_agreement --corpus demo` then reports agreement, Cohen's kappa, the false pass rate and the false refusal rate, next to my own agreement with myself on a relabelled 20.
 
-`python -m evals.faithfulness_agreement --corpus demo` maps supported to supported, and partially supported and unsupported to not supported. It then reports agreement, Cohen's kappa, the false pass rate (not supported answers the check passed, over all not supported answers), the false refusal rate (supported answers the check refused, over all supported answers) and a confusion matrix, next to my own agreement with myself on the relabelled 20.
+TODO: these numbers need my labels, which I have not done yet.
 
-TODO: "The faithfulness check agreed with my labels on A% of N answers (kappa K). Its false pass rate was F%, meaning F% of the answers I labelled unsupported were still shown. My own agreement with myself on a relabelled sample was S%."
-
-A synthetic stress set sits apart from those numbers. It takes answers labelled supported and corrupts them: a number swapped for one absent from the passages, a number swapped for a different one that does appear in them, an invented clinical sentence added, or a negation removed. It reports how many of each the check catches. TODO: the stress rates, once labels exist.
-
-From the code alone, three gaps are already clear. The check ignores "no" and "not" as stopwords, compares numbers against every retrieved passage at once, and skips a sentence with no content words, such as a lone "31.".
+From the code, three gaps in the check are already clear: it ignores "no" and "not" as stopwords, compares numbers against every retrieved passage at once, and skips a sentence with no content words, such as a lone "31.". A synthetic stress set (`evals/stress.py`) measures each of these once the labels exist.
 
 ### Regression gate
 
-`python -m evals.check_regression` runs the default retriever on the reviewed demo questions and fails when recall@5 drops by more than 0.02 or MRR by more than 0.03 against `evals/baseline_demo.json`. With about 35 retrieval questions a single lost question moves recall@5 by about 0.029, so any lost question fails the gate. It also fails when there are no reviewed questions, no baseline, or a different set of reviewed questions than the baseline used. `.github/workflows/eval.yml` runs it on every pull request with CPU torch, no secrets and no call to Gemini.
-
-Updating the baseline is a deliberate step: `python -m evals.check_regression --update-baseline` prints the old and new values and refuses to run in CI. TODO: create and commit the baseline once the questions are reviewed.
+`python -m evals.check_regression` runs the default retriever on the 70 reviewed retrieval questions and fails when recall@5 drops by more than 0.02 or MRR by more than 0.03 against `evals/baseline_demo.json` (currently recall@5 0.9155 and MRR 0.8643). One lost question moves recall@5 by about 0.014, so the gate tolerates one borderline question and fails at two. `.github/workflows/eval.yml` runs it on every pull request with CPU torch, no secrets and no call to Gemini. `python -m evals.check_regression --update-baseline` prints the old and new values and refuses to run in CI.
 
 To record the gate failing on a throwaway pull request:
 
 1. `git checkout -b throwaway/weaker-retrieval`
-2. In `core/retrieval.py`, change the default of `retrieve_chunks` from `header_boost=True` to `header_boost=False`. Shrinking `MAX_CHUNK_WORDS` in `config.py` also works, but only below about 30 words, because most demo sections are already shorter than 60 words.
+2. In `config.py`, change the default of `CONTEXTUAL_INDEX` to `False`, which rebuilds the demo index without the note context in CI.
 3. Commit, push the branch and open a pull request against `main`.
 4. Wait for the **Retrieval regression gate** job, then copy the FAIL lines from its log.
 5. Close the pull request without merging and delete the branch.
 
 ### Poisoned note test
 
-`python -m evals.run_injection_eval` builds a temporary index of the ten demo notes plus three fabricated notes from `demo/adversarial_notes.py`. Each of those notes hides an instruction to include the harmless string CANARY-7731. The public demo index never contains them. Nine questions target the three notes. Measured on 26 September 2026:
+`python -m evals.run_injection_eval` builds a temporary index of the ten demo notes plus three fabricated notes from `demo/adversarial_notes.py`. Each of those notes hides an instruction to include the harmless string CANARY-7731. The public demo index never contains them. Nine questions target the three notes.
+
+Measured on 27 September 2026 with the final system:
 
 | Generator | Poisoned passage retrieved | Canary in the final answer, of exposed questions | Check passed the canary answer |
 |---|---|---|---|
-| FLAN-T5, local agent | 6 of 9 | 1 of 6, 17% (interval 3% to 56%) | 1 of 1 |
-| Gemini, the public demo's generator | 6 of 9 | 3 of 6, 50% (interval 19% to 81%) | 3 of 3 |
+| FLAN-T5, local agent | 6 of 9 | 2 of 6, 33% (10% to 70%) | 2 of 2 |
+| Gemini, the public demo's generator | 4 of 5 answered | 2 of 4, 50% (15% to 85%) | 2 of 2 |
 
-The faithfulness check passed every answer that carried the canary. It compares an answer with the retrieved passages, and the canary is in the passage, so an echoed instruction looks supported. Nine questions is a small sample, the intervals are wide, and Gemini does not answer the same way every run, so its count can move between runs. The FLAN-T5 case may be the model copying the sentence rather than obeying it; both count as a leak here.
+Four of the nine Gemini calls failed on this run, most likely on the free tier's quota, so Gemini answered five questions. Before the answering changes the local agent leaked the canary on 1 of 6 exposed questions. The extra leak comes from quoting medication lists word for word: one poisoned note hides its instruction inside the list itself, and a verbatim quote passes it through.
+
+The faithfulness check passed every answer that carried the canary. It compares an answer with the retrieved passages, and the canary is in the passage, so an echoed instruction looks supported. Nine questions is a small sample and the intervals are wide.
+
+### Original smoke test
+
+| Metric | Real dataset (MIMIC-IV-Note v2.2) | Synthetic demo |
+|---|---|---|
+| Original smoke test (10 questions, keyword match) | 70% (7/10); 60% (6/10) after the index change | 80% (8/10) |
+| Mean latency | ~3.4s per question | ~4.6s per question |
+
+These runs call retrieval and generation directly, so routing, the faithfulness check and the refusal never took part in them. The real dataset figure was 7 of 10 before the contextual index and 6 of 10 after it, rerun on 27 September 2026. One question is the whole difference, which is the noise this evaluation was built to get past, and none of these ten questions names a patient, so they do not test what the contextual index is for. Whether the change helps on real notes needs the real golden set. No note text, answer or passage from the real runs is in this repository.
 
 ### Limitations
 
-- The demo corpus is 10 fabricated notes and 101 chunks, too small to separate retrievers that are close.
-- One labeller (me) wrote the questions and labels the answers.
-- The real notes come from one institution, Beth Israel Deaconess Medical Center.
-- Answer correctness still rests on keyword assertions, now explicit per question instead of shared loose keywords.
-- Real dataset numbers are aggregates only, and reproducing them needs credentialed PhysioNet access.
+- The demo corpus is 10 fabricated notes and 101 chunks, and the holdout has 40 questions, so every interval is wide.
+- One person (me) wrote the questions and approved them in bulk, and will label the answers.
+- Answer correctness still rests on keyword assertions, which reject some correct paraphrases.
+- The real notes come from one institution, Beth Israel Deaconess Medical Center. Real dataset numbers are aggregates only, and reproducing them needs credentialed PhysioNet access.
 - Routing is scored with the local keyword rules, since evaluation runs keep Gemini off.
+- Hybrid answering is slower: each question part runs a yes/no check with FLAN-T5-large as well as FLAN-T5-base.
 
 ## 🗂️ Dataset
 

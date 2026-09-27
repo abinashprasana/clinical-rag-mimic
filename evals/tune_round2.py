@@ -23,7 +23,12 @@ def compute(questions):
 
     import config
     from core.extractive import best_unit, decompose, get_reranker, is_list_unit
-    from core.generation import generate_answer, get_judge, is_answerable, load_generator
+    from core.generation import (
+        generate_answer,
+        get_judge,
+        is_answerable,
+        load_generator,
+    )
     from core.retrieval import retrieve_chunks
     from evals.corpus import load_corpus
 

@@ -2,8 +2,8 @@ Corpus demo, 100 questions. Rates with 95% Wilson intervals. Routing is offline 
 
 | measure | result |
 |---|---|
-| Answer correctness (answer questions) | 36/70 = 51% [40%, 63%] |
-| Refusal accuracy (unanswerable questions) | 4/16 = 25% [10%, 49%] |
+| Answer correctness (answer questions) | 61/70 = 87% [77%, 93%] |
+| Refusal accuracy (unanswerable questions) | 14/16 = 88% [64%, 97%] |
 | Routing accuracy (clarify and FDA questions) | 12/14 = 86% [60%, 96%] |
 |   of which clarify | 4/6 = 67% [30%, 90%] |
 |   of which FDA label lookup | 8/8 = 100% [68%, 100%] |
@@ -12,25 +12,24 @@ Corpus demo, 100 questions. Rates with 95% Wilson intervals. Routing is offline 
 | category | correct |
 |---|---|
 | ambiguous | 4/6 = 67% [30%, 90%] |
-| discharge_followup | 4/6 = 67% [30%, 90%] |
+| discharge_followup | 6/6 = 100% [61%, 100%] |
 | fda_dosage | 8/8 = 100% [68%, 100%] |
-| medication_list | 7/16 = 44% [23%, 67%] |
-| multi_section | 0/12 = 0% [0%, 24%] |
-| negation | 9/12 = 75% [47%, 91%] |
-| single_fact | 16/24 = 67% [47%, 82%] |
-| unanswerable | 4/16 = 25% [10%, 49%] |
+| medication_list | 13/16 = 81% [57%, 93%] |
+| multi_section | 8/12 = 67% [39%, 86%] |
+| negation | 12/12 = 100% [76%, 100%] |
+| single_fact | 22/24 = 92% [74%, 98%] |
+| unanswerable | 14/16 = 88% [64%, 97%] |
 
 | faithfulness gate | count |
 |---|---|
 | drafts checked | 88 |
-| passed on first check | 86 |
-| retried | 2 |
+| passed on first check | 88 |
+| retried | 0 |
 | retry produced a different draft | 0 |
-| answerable questions refused by the gate | 2 |
+| answerable questions refused by the gate | 0 |
 | outcome: clarified | 4 |
 | outcome: fda_card | 8 |
-| outcome: model_refusal | 5 |
-| outcome: refused_by_gate | 2 |
-| outcome: shown | 81 |
+| outcome: model_refusal | 17 |
+| outcome: shown | 71 |
 
 Original smoke test source: rerun now with demo/evaluate.py questions and keywords.
