@@ -88,6 +88,7 @@ def main(argv=None):
     parser.add_argument('--pause', type=float, default=5.0, help='seconds between questions (free tier pacing)')
     parser.add_argument('--max-fallbacks', type=int, default=3)
     parser.add_argument('--split', choices=['all', 'dev', 'test'], default='all')
+    parser.add_argument('--file', help='golden file (default: the 100 demo questions)')
     args = parser.parse_args(argv)
 
     import config
@@ -95,13 +96,14 @@ def main(argv=None):
         print('GEMINI_API_KEY is not set, so the public runtime would only use its offline fallback. Nothing to score.')
         return 2
     from demo import runtime
-    questions = [q for q in select(load_questions(GOLDEN_FILES['demo']), split=args.split)
+    questions = [q for q in select(load_questions(args.file or GOLDEN_FILES['demo']), split=args.split)
                  if q['expected_behavior'] in ('answer', 'refuse')]
     records = run(questions, load_corpus('demo'), runtime.run_turn, args.pause, args.max_fallbacks)
     summary = summarise(records)
     result = {'meta': common.run_metadata('demo', False, len(questions)),
               'runtime': runtime.PUBLIC_GENERATOR_LABEL, **summary}
-    common.write_json(os.path.join(common.RESULTS_DIR, 'public_demo.json'), result)
+    tag = '' if not args.file else '_' + os.path.basename(args.file).split('.')[0]
+    common.write_json(os.path.join(common.RESULTS_DIR, f'public_demo{tag}.json'), result)
     common.write_jsonl(os.path.join(common.DEMO_RUNS_DIR, 'public_records.jsonl'), records)
 
     def pct(row):

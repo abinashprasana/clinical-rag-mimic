@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "corpus": "demo",
+    "reviewed_only": true,
+    "n_questions": 35,
+    "run_at": "2026-09-27T01:17:27+00:00",
+    "git_commit": "50c942f"
+  },
+  "runtime": "gemini-flash-lite-latest (retrieval-augmented, local fallback)",
+  "attempted": 35,
+  "answered_by_gemini": 34,
+  "fallback_answers_excluded": 1,
+  "recall@5": {
+    "mean": 0.9226190476190477,
+    "low": 0.8452380952380951,
+    "high": 0.9821428571428571
+  },
+  "answer_correctness": {
+    "k": 17,
+    "n": 28,
+    "rate": 0.6071428571428571,
+    "low": 0.42409044296597176,
+    "high": 0.764343134584204
+  },
+  "refusal_accuracy": {
+    "k": 6,
+    "n": 6,
+    "rate": 1.0,
+    "low": 0.6096657120978346,
+    "high": 1.0
+  }
+}

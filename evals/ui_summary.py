@@ -37,11 +37,19 @@ def _rate(row):
 def build_summary(results_dir, corpus):
     """Combine the reviewed aggregate files in results_dir into one summary.
     Unreviewed results never live in results_dir, so they never reach it."""
-    retrieval = _read(os.path.join(results_dir, f'retrieval_{corpus}.json'))
-    generation = _read(os.path.join(results_dir, f'generation_{corpus}.json'))
+    # The demo headline comes from the 40 question holdout, which was never
+    # used for tuning; the 100 original questions were tuning data.
+    def reported(kind):
+        holdout = _read(os.path.join(results_dir, f'{kind}_{corpus}_demo_holdout.json'))
+        return holdout or _read(os.path.join(results_dir, f'{kind}_{corpus}.json'))
+
+    retrieval, generation = reported('retrieval'), reported('generation')
     faithfulness = _read(os.path.join(results_dir, f'faithfulness_{corpus}.json'))
     injection = _read(os.path.join(results_dir, f'injection_{corpus}.json')) if corpus == 'demo' else None
     summary = {'schema': SCHEMA, 'corpus': corpus, **dict.fromkeys(SECTIONS)}
+    summary['question_set'] = ('held-out' if os.path.exists(
+        os.path.join(results_dir, f'generation_{corpus}_demo_holdout.json')) else 'all')
+    public = _read(os.path.join(results_dir, 'public_demo_demo_holdout.json')) if corpus == 'demo' else None
 
     if retrieval and retrieval['meta']['reviewed_only']:
         variants = []
@@ -81,7 +89,7 @@ def build_summary(results_dir, corpus):
             rows = [{'name': k, 'k': v['detected'], 'n': v['n']} for k, v in stress['counts'].items() if v['n']]
             summary['stress'] = {'rows': rows} if rows else None
 
-    public = _read(os.path.join(results_dir, 'public_demo.json')) if corpus == 'demo' else None
+    public = public or (_read(os.path.join(results_dir, 'public_demo.json')) if corpus == 'demo' else None)
     if public and public.get('answered_by_gemini'):
         summary['public'] = {
             'run_at': public['meta']['run_at'], 'attempted': public['attempted'],
@@ -116,7 +124,7 @@ def _valid_rate(row):
 def valid(summary):
     if not isinstance(summary, dict) or summary.get('schema') != SCHEMA:
         return False
-    if set(summary) - {'schema', 'corpus', *SECTIONS}:
+    if set(summary) - {'schema', 'corpus', 'question_set', *SECTIONS}:
         return False
     r = summary.get('retrieval')
     if r is not None and not all(
