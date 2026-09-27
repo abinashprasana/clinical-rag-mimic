@@ -52,7 +52,7 @@ The interface opens on a case-study page covering what the system is, the two da
 
 ## 🧪 Evaluation
 
-The original evaluation was a 10 question keyword check. One question moved the score by 10 points, so it could not separate a real change from noise, and it mixed retrieval and generation into one number. It is now a golden set of 140 questions across 8 question types on the fabricated demo notes, scored with retrieval metrics and generation metrics separately, with confidence intervals on every number. A set of about 100 questions on the real notes uses the same format and stays on my machine.
+The original evaluation was a 10 question keyword check. One question moved the score by 10 points, so it could not separate a real change from noise, and it mixed retrieval and generation into one number. It is now a golden set of 180 questions across 8 question types on the fabricated demo notes, scored with retrieval metrics and generation metrics separately, with confidence intervals on every number. A set of about 100 questions on the real notes uses the same format and stays on my machine.
 
 Everything lives in `evals/`, separate from `core/evaluation.py`, which stays as the original smoke test. Rules that hold for every run:
 
@@ -62,7 +62,7 @@ Everything lives in `evals/`, separate from `core/evaluation.py`, which stays as
 
 ### How the numbers were kept honest
 
-The 140 questions come in two groups. The first 100 (`evals/golden/demo_questions.jsonl`) were used to find and tune improvements, split 50/50 into a dev half and a test half before any tuning (`evals/golden/demo_split.json`). The other 40 (`evals/golden/demo_holdout.jsonl`) were written and committed before the last round of changes and were scored exactly once afterwards. The headline numbers below come from those 40. I wrote every question and approved them in bulk without a line by line review; each record says so in its `notes` field.
+The 180 questions come in three groups. The first 100 (`evals/golden/demo_questions.jsonl`) were used to find and tune improvements, split 50/50 into a dev half and a test half before any tuning (`evals/golden/demo_split.json`). Two sets of 40 (`evals/golden/demo_holdout.jsonl` and `demo_holdout2.jsonl`) were each written and committed before a round of changes and scored once afterwards. The headline numbers below come from the first of them. I wrote every question and approved them in bulk without a line by line review; each record says so in its `notes` field.
 
 ### Headline results (40 question holdout)
 
@@ -77,6 +77,33 @@ The 140 questions come in two groups. The first 100 (`evals/golden/demo_question
 Intervals are 95%: bootstrap over questions for retrieval, Wilson for rates. The paired difference in recall@5 between the new and the previous retrieval on the holdout is 0.207 (0.034 to 0.414), so the retrieval gain is real on questions that were never used for tuning. The "before" column is the code as it was before these changes (commit ad0262a), run on the same 40 questions. On them, answer correctness went from 34% to 69% and refusal from 1 in 6 to 5 in 6. 69% is short of the 80% I aimed for, and the intervals are wide because the holdout is small.
 
 On the 100 original questions, which were used to choose the changes and therefore overstate them, the local agent now scores 61 of 70 on answer correctness (87%, 77% to 93%) and 14 of 16 on refusal (88%), against 36 of 70 (51%) and 4 of 16 (25%) before. The holdout above is the fairer measure.
+
+### Second holdout
+
+A second set of 40 questions (`evals/golden/demo_holdout2.jsonl`) was written and committed before I tried larger answer models, and scored once afterwards with the default setup:
+
+| Measure | Result |
+|---|---|
+| Retrieval recall@5 | 0.948 (0.862 to 1.000) |
+| Answer correctness | 55%, 16 of 29 (38% to 72%) |
+| Refusal when the notes lack the answer | 100%, 6 of 6 (61% to 100%) |
+| Routing to clarify or the FDA label | 100%, 5 of 5 |
+
+The two holdouts overlap heavily in their intervals, so on new questions the answer correctness of this system is somewhere around 55% to 70%. Retrieval found the right section for almost every question in both; the remaining errors are in turning that section into the exact answer.
+
+### Larger local answer models
+
+FLAN-T5-base reads about 480 tokens, so it rarely sees all five passages. I tried two larger open models that run on a CPU and read far more: Qwen2.5-1.5B-Instruct and Qwen3-1.7B (both Apache 2.0, loaded from the local cache with no network access during a run). Their prompt fences each passage as data and tells the model not to follow instructions inside it (spotlighting, Hines et al., arXiv:2403.14720). On the 100 tuning questions:
+
+| Answer model and mode | Answer correctness | Refusal | Seconds per question |
+|---|---|---|---|
+| FLAN-T5-base, hybrid (default) | 61 of 70 (87%) | 14 of 16 (88%) | 6.2 |
+| Qwen2.5-1.5B-Instruct, hybrid | 55 of 70 (79%) | 15 of 16 (94%) | 19.5 |
+| Qwen3-1.7B, hybrid | 54 of 70 (77%) | 15 of 16 (94%) | 31.1 |
+| Qwen2.5-1.5B-Instruct, generative | 49 of 70 (70%) | 14 of 16 (88%) | 12.2 |
+| Qwen3-1.7B, generative | 42 of 70 (60%) | 14 of 16 (88%) | 37.8 |
+
+On these tuning questions neither larger model beat the default, and both were three to six times slower. Their misses were real errors, such as giving the baseline hemoglobin as the admission value or the admission oxygen saturation as the discharge value, plus some answers the faithfulness check blocked because the model paraphrased. I kept FLAN-T5-base as the default and decided that before scoring the second holdout. On the second holdout the result went the other way. Scored once each on the same 29 answerable questions, Qwen2.5-1.5B-Instruct with hybrid answering was right on 22 (76%, 58% to 88%) against 16 for the default, and refused 5 of 6 unanswerable questions against 6 of 6. Question by question, 14 were right for both, 8 only for Qwen, 2 only for FLAN-T5 and 5 for neither; the paired difference is 0.21 (0.00 to 0.41) and an exact McNemar test gives p = 0.11, so the fresh questions lean towards Qwen without settling it. The tuning comparison probably favours FLAN-T5 because the hybrid rules were tuned with it. Switching the default because of a holdout score would be tuning on the holdout, so the default stays as decided, and the question stays open until a new question set or the real notes decide it. Qwen also took 3 to 10 times longer per question on this laptop. `LOCAL_GENERATOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct` switches to it.
 
 ### What changed
 
