@@ -226,6 +226,7 @@ def main(argv=None):
                         help='also score draft questions (development only, labelled UNREVIEWED)')
     parser.add_argument('--no-legacy', action='store_true', help='skip the original 10 question row')
     parser.add_argument('--file', help='override the golden file path')
+    parser.add_argument('--tag', help='suffix for the output files, for side by side model comparisons')
     parser.add_argument('--split', choices=['all', 'dev', 'test'], default='all',
                         help='frozen half of the demo set (evals/golden/demo_split.json)')
     args = parser.parse_args(argv)
@@ -263,6 +264,8 @@ def main(argv=None):
     result = {
         'meta': common.run_metadata(args.corpus, args.include_unreviewed, len(questions)),
         'generator': config.LOCAL_GENERATOR_MODEL,
+        'answer_mode': config.ANSWER_MODE,
+        'judge': config.ANSWERABILITY_JUDGE_MODEL,
         'routing': 'offline keyword rules; openFDA stubbed',
         'scores': score(questions, records),
     }
@@ -271,15 +274,15 @@ def main(argv=None):
                             if args.corpus == 'demo' else legacy_real())
 
     agg_dir, records_dir = common.output_dirs(args.corpus, args.include_unreviewed)
-    file_tag = '' if not args.file else '_' + os.path.basename(args.file).split('.')[0]
+    file_tag = ('' if not args.file else '_' + os.path.basename(args.file).split('.')[0]) + (f'_{args.tag}' if args.tag else '')
     stem = (f'generation_{args.corpus}' + file_tag + ('' if args.split == 'all' else f'_{args.split}')
             + ('.unreviewed' if args.include_unreviewed else ''))
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)
     with open(os.path.join(agg_dir, stem + '.md'), 'w', encoding='utf-8', newline='\n') as f:
         f.write(render(result, 'md') + '\n')
-    common.write_jsonl(os.path.join(records_dir, f'generation_records_{args.corpus}.jsonl'), records)
+    common.write_jsonl(os.path.join(records_dir, f'generation_records_{args.corpus}{file_tag}.jsonl'), records)
     print(render(result, 'text'))
-    common.refresh_summary(args.corpus, args.include_unreviewed or args.split != 'all' or bool(args.file))
+    common.refresh_summary(args.corpus, args.include_unreviewed or args.split != 'all' or bool(args.file) or bool(args.tag))
     print(f'\nWrote {agg_dir}/{stem}.json and .md; per question records in {records_dir}/.')
     return 0
 
