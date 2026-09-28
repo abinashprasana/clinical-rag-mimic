@@ -82,7 +82,6 @@
 .landing .case-chapters,
 .landing .results-figure__legend,
 .landing .evidence-plane,
-.landing .pipeline-output,
 .landing .boundary-gate {
     font-family: "IBM Plex Mono", monospace;
     font-variant-numeric: tabular-nums;
@@ -489,157 +488,181 @@
     line-height: 1.8;
 }
 
-.landing .story-signal {
-    display: grid;
-    grid-template-columns: auto minmax(40px, 1fr) auto;
-    align-items: center;
-    gap: 16px;
-    margin-top: 58px;
-    color: var(--case-muted);
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.landing .story-signal__line {
-    position: relative;
-    height: 1px;
-    background: var(--case-line);
-}
-
-.landing .story-signal__line::before,
-.landing .story-signal__line::after {
-    position: absolute;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    border: 1px solid var(--case-cyan);
-    border-radius: 50%;
-    background: var(--case-ink);
-    transform: translateY(-50%);
-    content: "";
-}
-
-.landing .story-signal__line::before { left: 0; }
-.landing .story-signal__line::after { right: 0; background: var(--case-cyan); }
-
+/* Architecture: five steps on one rail. On reveal, each connector draws
+   into the next step, the nodes light in turn, then a single dot travels
+   the rail once and the final node keeps a soft ring. Nothing loops. With
+   no JS the finished diagram shows; reduced motion shows it at once. */
 .landing .architecture-chapter {
-    display: grid;
-    grid-template-columns: minmax(300px, 0.72fr) minmax(500px, 1.28fr);
-    gap: clamp(46px, 7vw, 104px);
-    align-items: start;
+    display: block;
 }
 
 .landing .architecture-intro {
-    position: sticky;
-    top: 96px;
-    min-height: 420px;
+    position: static;
 }
 
 .landing .pipeline-diagram {
-    margin: 0;
+    margin: clamp(52px, 6vw, 84px) 0 0;
 }
 
-.landing .pipeline-reveal-wrap {
+.landing .pipeline-flow {
+    --pipe-gap: 16px;
+    --pipe-drop: 46px;
     position: relative;
-    min-height: 820px;
-    padding: 26px 0;
 }
 
-.landing .pipeline-map {
-    position: absolute;
-    z-index: 0;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-    pointer-events: none;
-}
-
-.landing .pipeline-map__rail,
-.landing .pipeline-map__progress {
-    fill: none;
-    stroke-linecap: square;
-    stroke-width: 1.3;
-}
-
-.landing .pipeline-map__rail {
-    stroke: var(--case-line);
-}
-
-.landing .pipeline-map__progress {
-    stroke: var(--case-cyan);
-    stroke-dasharray: 7 11;
-    opacity: 0.62;
-}
-
-.landing .pipeline-stack {
+.landing .pipeline-steps {
     position: relative;
-    z-index: 1;
-    display: block;
-    min-height: 720px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--pipe-gap);
     margin: 0;
-    padding: 0;
+    padding: var(--pipe-drop) 0 0;
+    list-style: none;
 }
 
 .landing .pipeline-stage {
-    position: absolute;
-    width: min(62%, 390px);
-    min-height: 206px;
-    padding: 28px 28px 30px;
+    position: relative;
+    min-height: 228px;
+    padding: 24px 22px 26px;
     border: 1px solid var(--case-line);
     border-radius: 8px;
     background: rgba(10, 27, 35, 0.96);
-    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.26);
-    transform: none;
-    transition: border-color 180ms var(--case-ease), background-color 180ms var(--case-ease), transform 180ms var(--case-ease);
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.22);
+    transition: border-color 180ms var(--case-ease), background-color 180ms var(--case-ease);
 }
 
-.landing .pipeline-stage::after {
+/* ::after is the quiet track, ::before the cyan connector drawn over it. */
+.landing .pipeline-stage:not(:last-child)::before,
+.landing .pipeline-stage:not(:last-child)::after {
     position: absolute;
-    top: 18px;
-    right: 18px;
-    width: 10px;
-    height: 10px;
-    border: 1px solid var(--case-cyan);
-    border-radius: 50%;
-    background: var(--case-ink);
+    top: calc(7px - var(--pipe-drop));
+    left: 50%;
+    width: calc(100% + var(--pipe-gap));
+    height: 1px;
     content: "";
 }
 
-.landing .pipeline-stage:nth-child(1) {
-    top: 18px;
-    left: 0;
+.landing .pipeline-stage:not(:last-child)::after {
+    z-index: 0;
+    background: var(--case-line);
 }
 
-.landing .pipeline-stage:nth-child(3) {
-    top: 268px;
-    right: 0;
+.landing .pipeline-stage:not(:last-child)::before {
+    z-index: 1;
+    background: var(--case-cyan);
+    transform: none;
+    transform-origin: left center;
+    transition: transform 360ms var(--case-ease);
 }
 
-.landing .pipeline-stage:nth-child(5) {
-    top: 518px;
+.landing .pipeline-stage:nth-child(1)::before { transition-delay: 200ms; }
+.landing .pipeline-stage:nth-child(2)::before { transition-delay: 500ms; }
+.landing .pipeline-stage:nth-child(3)::before { transition-delay: 800ms; }
+.landing .pipeline-stage:nth-child(4)::before { transition-delay: 1100ms; }
+
+.landing .pipeline-node {
+    position: absolute;
+    z-index: 2;
+    top: calc(0px - var(--pipe-drop));
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    border: 1px solid var(--case-cyan);
+    border-radius: 50%;
+    background: var(--case-cyan);
+    transition:
+        background-color 260ms var(--case-ease) var(--node-delay, 0ms),
+        border-color 260ms var(--case-ease) var(--node-delay, 0ms),
+        box-shadow 520ms var(--case-ease) var(--node-delay, 0ms);
+}
+
+/* The short stem from each node down to its card. */
+.landing .pipeline-node::after {
+    position: absolute;
+    top: 13px;
+    left: 6px;
+    width: 1px;
+    height: calc(var(--pipe-drop) - 14px);
+    background: var(--case-line);
+    content: "";
+}
+
+.landing .pipeline-stage:nth-child(1) .pipeline-node { --node-delay: 100ms; }
+.landing .pipeline-stage:nth-child(2) .pipeline-node { --node-delay: 500ms; }
+.landing .pipeline-stage:nth-child(3) .pipeline-node { --node-delay: 800ms; }
+.landing .pipeline-stage:nth-child(4) .pipeline-node { --node-delay: 1100ms; }
+.landing .pipeline-stage:nth-child(5) .pipeline-node { --node-delay: 1400ms; }
+
+.landing .pipeline-stage:last-child .pipeline-node {
+    box-shadow: 0 0 0 6px rgba(98, 199, 208, 0.16);
+}
+
+/* Pending snaps to the undrawn state with no transition, so the staggered
+   delays above only ever apply on the way to revealed. */
+.landing.is-enhanced .pipeline-diagram[data-reveal-state="pending"] .pipeline-stage::before {
+    transform: scaleX(0);
+    transition: none;
+}
+
+.landing.is-enhanced .pipeline-diagram[data-reveal-state="pending"] .pipeline-node {
+    border-color: var(--case-line);
+    background: var(--case-ink);
+    box-shadow: none;
+    transition: none;
+}
+
+.landing .pipeline-rail {
+    position: absolute;
+    z-index: 3;
+    top: 3px;
+    right: calc((100% - 4 * var(--pipe-gap)) / 10);
+    left: calc((100% - 4 * var(--pipe-gap)) / 10);
+    height: 8px;
+    pointer-events: none;
+}
+
+.landing .pipeline-rail__pulse i {
+    position: absolute;
+    top: 0;
     left: 0;
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    border-radius: 50%;
+    background: var(--case-cyan-bright);
+    box-shadow: 0 0 12px rgba(154, 229, 232, 0.7);
+    opacity: 0;
+}
+
+.landing.is-enhanced .pipeline-diagram[data-reveal-state="revealed"] .pipeline-rail__pulse i {
+    animation: pipeline-pulse 1500ms var(--case-ease) 1700ms 1 both;
+}
+
+@keyframes pipeline-pulse {
+    0% { left: 0; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
 }
 
 .landing .pipeline-stage:focus-visible,
 .landing .pipeline-stage.is-active {
     border-color: var(--case-cyan-bright);
     background: var(--case-surface);
-    transform: translateY(-5px);
 }
 
 @media (hover: hover) and (pointer: fine) {
     .landing .pipeline-stage:hover {
         border-color: var(--case-cyan);
         background: var(--case-surface);
-        transform: translateY(-5px);
     }
 }
 
 .landing .pipeline-index {
-    margin-bottom: 20px;
+    display: block;
+    margin-bottom: 18px;
     color: var(--case-cyan);
     font-size: 10px;
     letter-spacing: 0.12em;
@@ -647,40 +670,15 @@
 
 .landing .pipeline-stage h3 {
     color: var(--case-text);
-    font-size: 19px;
+    font-size: 18px;
     font-weight: 500;
 }
 
 .landing .pipeline-stage p {
-    margin-top: 14px;
+    margin-top: 12px;
     color: var(--case-muted);
     font-size: 13px;
-    line-height: 1.68;
-}
-
-.landing .pipeline-connector {
-    display: none;
-}
-
-.landing .pipeline-output {
-    position: absolute;
-    z-index: 2;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    color: var(--case-cyan-bright);
-    font-size: 9px;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-}
-
-.landing .pipeline-output i {
-    display: block;
-    width: 42px;
-    height: 1px;
-    background: var(--case-cyan);
+    line-height: 1.64;
 }
 
 .landing .evidence-chapter .section-heading {
@@ -757,17 +755,9 @@
     line-height: 1.72;
 }
 
-.landing .dataset-why {
-    max-width: 72ch;
-    margin-top: 34px;
-    color: var(--case-secondary);
-    font-size: 15px;
-    line-height: 1.76;
-}
-
 .landing .live-status {
     max-width: none;
-    margin: 54px 0 64px;
+    margin: 34px 0 0;
     padding: 24px 26px;
     border: 0;
     border-left: 2px solid var(--case-cyan);
@@ -789,49 +779,6 @@
     color: var(--case-secondary);
     font-size: 14px;
     line-height: 1.72;
-}
-
-.landing .assurance-strip {
-    border-top: 1px solid var(--case-line);
-    border-bottom: 1px solid var(--case-line);
-}
-
-/* Column layout with the caption pinned to the bottom, so captions stay on a
-   common baseline even when one cell's value wraps to more lines than the
-   others (the public runtime's dataset and accuracy labels are far longer
-   than the local ones). */
-.landing .assurance-strip > div {
-    display: flex;
-    flex-direction: column;
-    padding: 30px 26px 32px 0;
-}
-
-.landing .assurance-strip small {
-    margin-top: auto;
-    padding-top: 10px;
-}
-
-.landing .assurance-strip > div + div {
-    padding-left: 26px;
-    border-left-color: var(--case-line);
-}
-
-.landing .assurance-strip span,
-.landing .assurance-strip small {
-    color: var(--case-muted);
-}
-
-/* Wrap rather than truncate. app.css clips these with nowrap + ellipsis,
-   which silently cut the public runtime's dataset and accuracy values mid
-   word. Nothing here is decoration, so it should stay readable in full. */
-.landing .assurance-strip strong {
-    margin-top: 12px;
-    overflow: visible;
-    color: var(--case-text);
-    font-size: clamp(15px, 1.5vw, 20px);
-    line-height: 1.32;
-    text-overflow: clip;
-    white-space: normal;
 }
 
 .landing .results-figure {
@@ -895,71 +842,6 @@
     line-height: 1.55;
 }
 
-.landing .result-plot {
-    position: relative;
-    height: 28px;
-    border-bottom: 1px solid var(--case-line);
-}
-
-.landing .result-plot::before,
-.landing .result-plot::after {
-    position: absolute;
-    bottom: -4px;
-    width: 1px;
-    height: 7px;
-    background: var(--case-line);
-    content: "";
-}
-
-.landing .result-plot::before { left: 0; }
-.landing .result-plot::after { right: 0; }
-
-.landing .result-plot__accuracy {
-    position: absolute;
-    bottom: 4px;
-    left: 0;
-    display: block;
-    height: 5px;
-    background: var(--case-cyan);
-    transform: scaleX(1);
-    transform-origin: left center;
-    transition: transform 720ms var(--case-ease);
-}
-
-.landing [data-reveal-state="pending"] .result-plot__accuracy {
-    transform: scaleX(0);
-}
-
-.landing .dataset-result--real .result-plot__accuracy { width: 70%; }
-.landing .dataset-result--demo .result-plot__accuracy { width: 80%; }
-
-/* Centered on the accuracy bar it caps, both vertically and horizontally.
-   The bar is 5px tall at bottom:4px, so its center sits 6.5px up, which puts
-   this 8px dot at bottom:2.5px. It previously used top:0, which left it
-   floating near the top of the 28px plot box, disconnected from the bar. */
-.landing .result-plot__latency {
-    position: absolute;
-    z-index: 2;
-    bottom: 2.5px;
-    display: block;
-    width: 8px;
-    height: 8px;
-    /* left: X% puts the dot's left EDGE at X, so without this the marker
-       renders half its width (4px) to the right of the value it encodes. */
-    transform: translateX(-50%);
-    border: 2px solid var(--case-ink-raised);
-    border-radius: 50%;
-    background: var(--case-amber);
-    box-shadow: 0 0 0 1px var(--case-amber);
-}
-
-/* The marker caps the end of each accuracy bar, so it tracks the bar width
-   above rather than sitting at an unrelated offset. Keep these in step with
-   .result-plot__accuracy's widths. The per-question latency is reported as
-   text beside the plot, not by this dot's position. */
-.landing .dataset-result--real .result-plot__latency { left: 70%; }
-.landing .dataset-result--demo .result-plot__latency { left: 80%; }
-
 /* Golden question set rows reuse the .dataset-result grid. The interval
    mark is an inline SVG whose coordinates come from the template, so no
    inline style is needed under the strict CSP. */
@@ -1009,6 +891,44 @@
 .landing .result-interval__point {
     stroke: var(--case-amber);
     stroke-width: 2;
+}
+
+/* The earlier measurement: a muted tick, joined to the current value by a
+   dashed line so the change reads left to right. */
+.landing .result-interval__before {
+    stroke: var(--case-muted);
+    stroke-width: 2;
+}
+
+.landing .result-interval__shift {
+    stroke: var(--case-muted);
+    stroke-dasharray: 3 3;
+    stroke-width: 1;
+}
+
+/* On reveal the interval wipes in from the left, row by row, and the value
+   tick lands after it. clip-path and opacity only, so layout never moves. */
+.landing .result-interval {
+    clip-path: inset(-6px 0 -6px 0);
+    transition: clip-path 720ms var(--case-ease);
+}
+
+.landing .result-interval__point {
+    transition: opacity 260ms var(--case-ease) 560ms;
+}
+
+.landing .dataset-result:nth-child(3) .result-interval { transition-delay: 120ms; }
+.landing .dataset-result:nth-child(4) .result-interval { transition-delay: 240ms; }
+.landing .dataset-result:nth-child(5) .result-interval { transition-delay: 360ms; }
+
+.landing.is-enhanced [data-reveal-state="pending"] .result-interval {
+    clip-path: inset(-6px 100% -6px 0);
+    transition: none;
+}
+
+.landing.is-enhanced [data-reveal-state="pending"] .result-interval__point {
+    opacity: 0;
+    transition: none;
 }
 
 .landing .dataset-result--pending strong {
@@ -1270,43 +1190,49 @@
         padding-top: 0;
     }
 
-    .landing .architecture-intro {
-        position: static;
-        min-height: 0;
-    }
-
-    .landing .pipeline-reveal-wrap {
-        min-height: 0;
-        padding: 12px 0 0;
-    }
-
-    .landing .pipeline-map,
-    .landing .pipeline-output {
-        display: none;
-    }
-
-    .landing .pipeline-stack {
-        display: grid;
-        gap: 18px;
-        min-height: 0;
+    /* The rail turns vertical: nodes sit to the left of each card and the
+       connectors draw downward. The travelling dot is desktop only. */
+    .landing .pipeline-steps {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        padding: 0 0 0 40px;
     }
 
     .landing .pipeline-stage {
-        position: relative;
-        top: auto !important;
-        right: auto !important;
-        left: auto !important;
-        width: 100%;
         min-height: 0;
-        padding: 28px;
     }
 
-    .landing .pipeline-connector {
-        display: block;
+    .landing .pipeline-node {
+        top: 26px;
+        left: -40px;
+        margin-left: 0;
+    }
+
+    .landing .pipeline-node::after {
+        top: 6px;
+        left: 13px;
+        width: 27px;
+        height: 1px;
+    }
+
+    .landing .pipeline-stage:not(:last-child)::before,
+    .landing .pipeline-stage:not(:last-child)::after {
+        top: 33px;
+        left: -34px;
         width: 1px;
-        height: 22px;
-        margin: -9px auto;
-        background: var(--case-line);
+        height: calc(100% + 14px);
+    }
+
+    .landing .pipeline-stage:not(:last-child)::before {
+        transform-origin: center top;
+    }
+
+    .landing.is-enhanced .pipeline-diagram[data-reveal-state="pending"] .pipeline-stage::before {
+        transform: scaleY(0);
+    }
+
+    .landing .pipeline-rail {
+        display: none;
     }
 
     .landing .evidence-chapter .section-heading,
@@ -1429,20 +1355,6 @@
         padding: var(--case-section-space) 0;
     }
 
-    .landing .story-signal {
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin-top: 42px;
-    }
-
-    .landing .story-signal__line {
-        order: 2;
-    }
-
-    .landing .story-signal__destination {
-        order: 3;
-    }
-
     .landing .dataset-pair {
         grid-template-columns: 1fr;
     }
@@ -1462,29 +1374,6 @@
         left: 0;
     }
 
-    .landing .assurance-strip {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .landing .assurance-strip > div,
-    .landing .assurance-strip > div + div {
-        padding: 22px 14px 24px 0;
-    }
-
-    .landing .assurance-strip > div:nth-child(even) {
-        padding-right: 0;
-        padding-left: 14px;
-    }
-
-    .landing .assurance-strip > div:nth-child(3),
-    .landing .assurance-strip > div:nth-child(4) {
-        border-top: 1px solid var(--case-line);
-    }
-
-    .landing .assurance-strip > div:nth-child(3) {
-        border-left: 0;
-    }
-
     .landing .results-figure {
         margin-top: 54px;
         padding: 24px;
@@ -1500,7 +1389,6 @@
         padding: 24px 0;
     }
 
-    .landing .result-plot,
     .landing .result-interval,
     .landing .dataset-result small {
         grid-column: 1 / -1;
@@ -1584,10 +1472,6 @@
         padding: 20px;
     }
 
-    .landing .assurance-strip strong {
-        font-size: 14px;
-    }
-
     .landing .results-figure {
         padding: 20px;
     }
@@ -1623,8 +1507,8 @@
         transform: none;
     }
 
-    .landing .result-plot__accuracy {
-        transform: scaleX(1) !important;
+    .landing .pipeline-rail__pulse i {
+        animation: none !important;
     }
 }
 
@@ -1642,9 +1526,8 @@
     }
 
     .landing .case-progress span,
-    .landing .result-plot__accuracy,
-    .landing .story-signal__line,
-    .landing .pipeline-output i {
+    .landing .pipeline-stage::before,
+    .landing .pipeline-node {
         background: Highlight;
     }
 }

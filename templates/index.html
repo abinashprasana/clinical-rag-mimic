@@ -44,7 +44,7 @@
                     </svg>
                     <p class="eyebrow">Clinical Evidence Assistant</p>
                     <h1>Evidence-grounded answers, built as an agent</h1>
-                    <p class="landing-lead">Ask a clinical question and get an answer traced back to the discharge note it came from. This started as a retrieve-then-generate pipeline over MIMIC-IV-Note and grew into an agent: it routes each question to the right tool, checks its own answer against the record before showing it, and refuses rather than guesses when the note doesn't say.</p>
+                    <p class="landing-lead">Ask a clinical question and get an answer traced to the discharge note it came from. The agent sends each question to the right tool, checks its draft against the record before you see it, and says so when the note is silent.</p>
                     <div class="landing-actions">
                         <a class="button button-primary" href="#assistant-panel" data-enter-app>
                             <span>Ask a question</span>
@@ -99,12 +99,7 @@
                     <h2 id="landing-story-title">From a retrieval pipeline to something closer to an agent</h2>
                 </div>
                 <div class="story-body">
-                    <p>A discharge note can run to thousands of words, and the fact you need usually sits in one section of it. This is for the people who have to check an answer against that note, like researchers and chart reviewers, so every answer here arrives with the passage it came from. This began as a plain retrieval-and-generate pipeline: embed a note, embed the question, find the closest passage, generate an answer from it. Over time it grew into something closer to an agent. A question is now routed to the right tool before it touches the record. A drug-dosage question goes to an FDA label lookup, not a guess pulled from someone's note, and every generated answer is checked against the retrieved text before it's shown, with one retry if that check fails. If neither routing nor retrieval turns up anything to ground an answer in, it says so instead of guessing.</p>
-                    <div class="story-signal" aria-hidden="true">
-                        <span class="story-signal__origin" data-ui-copy>Retrieve</span>
-                        <span class="story-signal__line"></span>
-                        <span class="story-signal__destination" data-ui-copy>Route · verify · refuse</span>
-                    </div>
+                    <p>A discharge note can run to thousands of words, and the fact a reviewer needs usually sits in one section of it. Researchers and chart reviewers have to check every answer against that section, so each answer here arrives with the passages it used. The first version embedded the question, found the closest passage and generated from it. Routing and the support check came later. The evaluation further down measures whether each change helped.</p>
                 </div>
             </section>
 
@@ -113,38 +108,46 @@
                     <div class="section-heading">
                         <p class="eyebrow">Processing architecture</p>
                         <h2 id="landing-flow-title">From question to reviewable response</h2>
-                        <p>The full breakdown, including what each stage does and doesn't guarantee, is in System Overview once you're inside the workspace.</p>
+                        <p>Every question passes through the same five steps. Inside the workspace, System Overview lists what each step guarantees and where it stops.</p>
                     </div>
                 </div>
                 <div class="pipeline-diagram" data-viz="architecture" data-reveal>
-                    <div class="pipeline-reveal-wrap">
-                        <svg class="pipeline-map" viewBox="0 0 720 780" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                            <path class="pipeline-map__rail" d="M88 110 C88 220 632 190 632 324 C632 452 88 420 88 552 C88 630 360 644 360 730" />
-                            <path class="pipeline-map__progress" d="M88 110 C88 220 632 190 632 324 C632 452 88 420 88 552 C88 630 360 644 360 730" />
-                        </svg>
-                        <ol class="pipeline-stack">
+                    <div class="pipeline-flow">
+                        <div class="pipeline-rail" aria-hidden="true">
+                            <span class="pipeline-rail__pulse"><i></i></span>
+                        </div>
+                        <ol class="pipeline-steps">
                             <li class="pipeline-stage" tabindex="0" data-stage="route">
+                                <span class="pipeline-node" aria-hidden="true"></span>
                                 <span class="pipeline-index">01</span>
                                 <h3>Route</h3>
-                                <p>Decide whether this needs a record lookup, a drug-label lookup, or a clarifying question, before touching the note.</p>
+                                <p>Sends the question to the note search, the FDA label lookup, or a clarifying question.</p>
                             </li>
-                            <li class="pipeline-connector" aria-hidden="true"></li>
                             <li class="pipeline-stage" tabindex="0" data-stage="retrieve">
+                                <span class="pipeline-node" aria-hidden="true"></span>
                                 <span class="pipeline-index">02</span>
-                                <h3>Retrieve &amp; generate</h3>
-                                <p>Pull the relevant passages and compose an answer from them{% if public_demo %} via the Gemini API{% else %} locally{% endif %}.</p>
+                                <h3>Retrieve</h3>
+                                <p>{% if public_demo %}Matches the question against note sections with Gemini embeddings and keeps the top five.{% else %}Searches note sections indexed with a line of context from their own note, and keeps the top five.{% endif %}</p>
                             </li>
-                            <li class="pipeline-connector" aria-hidden="true"></li>
-                            <li class="pipeline-stage" tabindex="0" data-stage="review">
+                            <li class="pipeline-stage" tabindex="0" data-stage="generate">
+                                <span class="pipeline-node" aria-hidden="true"></span>
                                 <span class="pipeline-index">03</span>
-                                <h3>Check &amp; respond</h3>
-                                <p>Compare the draft against what was retrieved, retry once if it doesn't hold up, and show the sources either way.</p>
+                                <h3>Generate</h3>
+                                <p>{% if public_demo %}Writes the answer from those passages through the Gemini API.{% else %}Quotes list sections word for word and writes the rest with FLAN-T5 on this machine.{% endif %}</p>
+                            </li>
+                            <li class="pipeline-stage" tabindex="0" data-stage="check">
+                                <span class="pipeline-node" aria-hidden="true"></span>
+                                <span class="pipeline-index">04</span>
+                                <h3>Check</h3>
+                                <p>Compares the draft with the passages and retries once. If the support still isn't there, it refuses.</p>
+                            </li>
+                            <li class="pipeline-stage" tabindex="0" data-stage="respond">
+                                <span class="pipeline-node" aria-hidden="true"></span>
+                                <span class="pipeline-index">05</span>
+                                <h3>Respond</h3>
+                                <p>Shows the answer with every passage it used, ready for a person to review.</p>
                             </li>
                         </ol>
-                        <div class="pipeline-output" aria-hidden="true" data-ui-copy>
-                            <span>Evidence path complete</span>
-                            <i></i>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -153,76 +156,32 @@
                 <div class="section-heading">
                     <p class="eyebrow">The real numbers</p>
                     <h2 id="landing-numbers-title">What's actually running, and what it measures</h2>
-                    <p>Two different datasets sit behind this project, and which one you're looking at depends on where you're viewing it from.</p>
+                    <p>Two datasets sit behind this project. Which one you're seeing depends on where you're viewing it from.</p>
                 </div>
                 <div class="dataset-pair">
                     <article class="dataset-card dataset-card--restricted">
                         <span class="dataset-tag">Restricted</span>
                         <h3>MIMIC-IV-Note v2.2</h3>
-                        <p>331,793 de-identified discharge notes from 145,914 real hospital admissions, released by PhysioNet under a credentialed Data Use Agreement. Reading one requires completing CITI training and signing that agreement, which forbids sharing access with anyone who hasn't done the same.</p>
+                        <p>331,793 de-identified discharge notes from real admissions. PhysioNet releases them under a data use agreement that forbids sharing access, so real-data runs stay on the owner's machine.</p>
                     </article>
                     <article class="dataset-card dataset-card--public">
                         <span class="dataset-tag">Public</span>
                         <h3>Ten fabricated discharge notes</h3>
-                        <p>Written by hand for this deployment, in the same section format MIMIC-IV-Note uses. Every vital, lab result, and diagnosis is invented, with no real patient or admission behind any of it, so none of it was ever restricted to begin with.</p>
+                        <p>Written by hand in the MIMIC section format. Every vital, lab value and diagnosis is invented, which is why the public site can run on them.</p>
                     </article>
                 </div>
-                <p class="dataset-why">{% if public_demo %}That's why this deployment runs on the fabricated notes only. The real agreement says access can't be shared with anyone else, and a public site handing out excerpts from real notes to anonymous visitors would do exactly that.{% else %}This local instance can run on either dataset, and everything below reflects whichever one is currently configured.{% endif %}</p>
-                <div class="live-status">
-                    <span class="live-dot" aria-hidden="true"></span>
-                    <p>{% if public_demo %}<strong>Right now:</strong> your question is embedded and matched against those fabricated notes through the Gemini API, an answer is generated from what matched, and it's checked against those same passages locally before you see it. If Gemini can't be reached, this falls back to a deterministic offline match instead of failing outright.{% elif gemini_enabled %}<strong>Right now:</strong> retrieval and answer generation both run locally on this machine with FLAN-T5, while question routing and clarification go through the Gemini API since a key is configured for this run. Because that routing step can carry clinical facts, this combination is meant for fabricated or otherwise unrestricted data, not a real MIMIC-IV-Note run.{% else %}<strong>Right now:</strong> retrieval, generation, and routing all run locally on this machine with FLAN-T5 and local keyword rules. No Gemini key is configured for this run, which is the intended setup for real MIMIC-IV-Note data, since routing context can carry clinical facts an external call would otherwise see.{% endif %}</p>
-                </div>
-                <section class="assurance-strip" aria-label="Core system facts">
-                    <div>
-                        <span>Dataset</span>
-                        {# The public runtime's DATASET_LABEL is a full disclosure sentence, too
-                           long for a stat cell. The short name shows here; the full text stays
-                           in the tooltip, the caption below, and the dataset cards above. #}
-                        <strong title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{% if public_demo %}Synthetic demo{% else %}{{ dataset_version | default('MIMIC-IV-Note v2.2') }}{% endif %}</strong>
-                        <small>{% if public_demo %}Fabricated notes, no patient data{% else %}De-identified discharge notes{% endif %}</small>
-                    </div>
-                    <div>
-                        <span>Retrieval</span>
-                        <strong>Top {{ retrieval_top_k | default(5) }}</strong>
-                        <small>Section-aware passages</small>
-                    </div>
-                    <div>
-                        <span>Generation</span>
-                        <strong>{% if public_demo %}Gemini API{% else %}Local{% endif %}</strong>
-                        <small>{% if public_demo %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}{% elif gemini_enabled %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, Gemini-routed{% else %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, local routing{% endif %}</small>
-                    </div>
-                    {% call(label, value, detail) ev.headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) %}
-                    <div>
-                        <span>{{ label }}</span>
-                        <strong>{{ value }}</strong>
-                        <small>{{ detail }}</small>
-                    </div>
-                    {% endcall %}
-                </section>
-                <div class="results-figure" data-viz="results" aria-label="Measured pipeline comparison">
+                <div class="live-status"><span class="live-dot" aria-hidden="true"></span><p>{% if public_demo %}<strong>Right now:</strong> this site searches the fabricated notes and answers through the Gemini API, then checks each answer against its passages before showing it.{% elif gemini_enabled %}<strong>Right now:</strong> retrieval and answers run on this machine, and routing goes through the Gemini API. Use this setup with fabricated notes only.{% else %}<strong>Right now:</strong> everything runs on this machine with no external calls, which is the setup for real MIMIC notes.{% endif %}</p></div>
+                <div class="results-figure" data-viz="results" aria-label="Measured results on held-out questions">
                     <div class="results-figure__legend" aria-hidden="true" data-ui-copy>
                         <span>Result</span>
-                        <span>Detail</span>
+                        <span>95% interval</span>
                     </div>
                     <div class="dataset-results">
-                        <p class="results-group">Original smoke test (10 questions, keyword match)</p>
-                        <div class="dataset-result dataset-result--real">
-                            <span>Real dataset</span>
-                            <strong>70%</strong>
-                            <div class="result-plot" aria-hidden="true"><i class="result-plot__accuracy"></i><b class="result-plot__latency"></b></div>
-                            <small>MIMIC-IV-Note, ~3.4s per question</small>
-                        </div>
-                        <div class="dataset-result dataset-result--demo">
-                            <span>Synthetic demo</span>
-                            <strong>80%</strong>
-                            <div class="result-plot" aria-hidden="true"><i class="result-plot__accuracy"></i><b class="result-plot__latency"></b></div>
-                            <small>Fabricated notes, ~4.6s per question</small>
-                        </div>
-                        {{ ev.golden_rows(eval_demo, 'Golden question set, fabricated demo notes') }}
-                        {% if eval_real %}{{ ev.golden_rows(eval_real, 'Golden question set, real notes') }}{% endif %}
+                        {{ ev.landing_rows(eval_demo, 'Held-out questions, fabricated demo notes') }}
+                        {% if eval_real %}{{ ev.landing_rows(eval_real, 'Golden question set, real notes') }}{% endif %}
                     </div>
                 </div>
-                <p class="dataset-results-note">The first two rows come from the original 10 question keyword check, run once against each dataset. The golden question set scores retrieval and answers separately, and each of its rows shows a 95% interval. {% if public_demo %}Those rows measure the local FLAN-T5 pipeline on the same ten fabricated notes. This site answers through the Gemini API; its own run of the original 10 question check scored 10/10.{% else %}The keyword check only confirms the pipeline answers end to end, and says nothing about clinical accuracy.{% endif %}</p>
+                <p class="dataset-results-note">Retrieval and answers are scored separately, on questions written after tuning ended. {% if public_demo %}These rows measure the local FLAN-T5 pipeline on the same ten notes this site searches. {% endif %}An earlier 10 question keyword test scored 70% on real notes and 80% on the demo notes{% if public_demo %}, and this site's own run of it scored 10/10{% endif %}. It only showed that the pipeline answered end to end.</p>
             </section>
 
             <section class="overview-section case-chapter boundary-chapter" id="case-boundaries" aria-labelledby="landing-boundaries-title" data-case-section="boundaries" data-reveal tabindex="-1">
@@ -234,9 +193,9 @@
                     <div class="boundary-lane boundary-lane--checks">
                         <h3>What it checks</h3>
                         <ul>
-                            <li>Every answer is compared against the passages it was retrieved from before it's shown.</li>
-                            <li>A drug-dosage question goes to an FDA label lookup, not a guess from the note.</li>
-                            <li>If nothing in the record supports an answer, it says so instead of guessing.</li>
+                            <li>Each answer is compared with the passages it came from before you see it.</li>
+                            <li>Dosage questions go to the FDA drug label, never to a patient's note.</li>
+                            <li>When nothing in the record supports an answer, it says so.</li>
                         </ul>
                     </div>
                     <div class="boundary-gate" aria-hidden="true" data-ui-copy>
@@ -246,9 +205,9 @@
                     <div class="boundary-lane boundary-lane--limits">
                         <h3>What it doesn't decide</h3>
                         <ul>
-                            <li>It doesn't determine diagnosis or treatment, since a qualified clinician reviews the record.</li>
-                            <li>{% if public_demo %}This deployment runs on ten fabricated notes; no real patient data is used publicly.{% else %}Retrieval ranks text similarity, not clinical importance or correctness.{% endif %}</li>
-                            <li>Evaluation uses 50 questions on ten fabricated notes, and one person labels the answers.</li>
+                            <li>It doesn't diagnose or recommend treatment. A clinician reviews the record.</li>
+                            <li>{% if public_demo %}This site runs on ten fabricated notes, so no real patient data is public.{% else %}Retrieval ranks text by similarity, which isn't the same as clinical importance.{% endif %}</li>
+                            <li>The demo scores come from questions about ten fabricated notes, checked by one person.</li>
                         </ul>
                     </div>
                 </div>
@@ -402,26 +361,7 @@
                                         </div>
                                     </div>
 
-                                    <dl class="system-metadata" aria-label="System configuration">
-                                        <div>
-                                            <dt>Dataset</dt>
-                                            <dd title="{{ dataset_version | default('MIMIC-IV-Note v2.2') }}">{{ dataset_version | default('MIMIC-IV-Note v2.2') }}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Generation</dt>
-                                            <dd>{% if public_demo %}{{ generator_model | default('Gemini') }}{% else %}Local · {{ generator_model | default('FLAN-T5') | replace('google/', '') }}{% endif %}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Retrieval</dt>
-                                            <dd>Top {{ retrieval_top_k | default(5) }} passages</dd>
-                                        </div>
-                                        {% call(label, value, detail) ev.headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) %}
-                                        <div>
-                                            <dt>{{ label }}</dt>
-                                            <dd title="{{ detail }}">{{ value }}</dd>
-                                        </div>
-                                        {% endcall %}
-                                    </dl>
+                                    <p class="welcome-meta">{% if public_demo %}Fabricated notes · Gemini API{% else %}{{ dataset_version | default('MIMIC-IV-Note v2.2') }} · {{ generator_model | default('FLAN-T5') | replace('google/', '') }} on this machine{% endif %} · top {{ retrieval_top_k | default(5) }} passages. Measured results are under System Overview.</p>
                                 </div>
 
                                 <figure class="constellation" aria-labelledby="constellation-caption">
@@ -555,7 +495,7 @@
                             >
                             <p class="eyebrow">System assurance</p>
                             <h1>Understand the evidence path and its limits</h1>
-                            <p>This view documents the data boundary, retrieval configuration, local generation path, automated source-support check, measured evaluation, and known limitations.</p>
+                            <p>This tab covers what runs and how it was measured. Every number here comes from an evaluation run in the repository.</p>
                         </header>
 
                         <section class="assurance-strip" aria-label="Core system facts">
@@ -567,12 +507,12 @@
                             <div>
                                 <span>Retrieval</span>
                                 <strong>Top {{ retrieval_top_k | default(5) }}</strong>
-                                <small>Section-aware passages</small>
+                                <small>{% if public_demo %}Gemini embeddings, section-aware{% else %}Contextual, section-aware index{% endif %}</small>
                             </div>
                             <div>
                                 <span>Generation</span>
                                 <strong>{% if public_demo %}Gemini API{% else %}Local{% endif %}</strong>
-                                <small>{{ generator_model | default('FLAN-T5') | replace('google/', '') }}</small>
+                                <small>{% if public_demo %}{{ generator_model | default('Gemini') }}{% else %}{{ generator_model | default('FLAN-T5') | replace('google/', '') }}, lists quoted{% endif %}</small>
                             </div>
                             {% call(label, value, detail) ev.headline(eval_demo, eval_real, public_demo, accuracy_label, accuracy_pct) %}
                             <div>
@@ -587,7 +527,7 @@
                             <div class="section-heading">
                                 <p class="eyebrow">Processing architecture</p>
                                 <h2 id="architecture-title">From question to reviewable response</h2>
-                                <p>Each stage exposes only what the current response contract can support. No claim-level citation mapping is inferred.</p>
+                                <p>Each step shows only what it can support. Answers cite passages as a whole, and no claim is mapped to a single sentence.</p>
                             </div>
                             <ol class="architecture-flow" data-reveal data-reveal-state="pending">
                                 <li>
@@ -596,11 +536,11 @@
                                 </li>
                                 <li>
                                     <span class="flow-index">02</span>
-                                    <div><h3>Retrieve</h3><p>Search section-aware chunks and return the configured number of relevant passages.</p></div>
+                                    <div><h3>Retrieve</h3><p>{% if public_demo %}Match the question against the fabricated note sections with Gemini embeddings and keep the top five passages.{% else %}Search note sections that carry a line of context from their own note, match section names on word stems, and keep the top five passages.{% endif %}</p></div>
                                 </li>
                                 <li>
                                     <span class="flow-index">03</span>
-                                    <div><h3>Generate</h3><p>{% if public_demo %}Compose an answer from the retrieved passages via the Gemini API, or quote the top passage directly if Gemini is unavailable.{% else %}Compose an answer locally from the retrieved context within model input limits.{% endif %}</p></div>
+                                    <div><h3>Generate</h3><p>{% if public_demo %}Compose an answer from the retrieved passages through the Gemini API, or quote the top passage if Gemini is unavailable.{% else %}Split questions with several parts, quote list sections word for word, and write the rest with the local model.{% endif %}</p></div>
                                 </li>
                                 <li>
                                     <span class="flow-index">04</span>
@@ -624,54 +564,23 @@
                                     <h2 id="evaluation-title">Evaluation evidence</h2>
                                     {% endif %}
                                 </div>
-                                {% if public_demo %}
-                                <p>This deployment searches only ten fully fabricated discharge records. It retrieves and generates via the Gemini API rather than loading models in-process, and falls back to a simpler offline method if Gemini is unavailable. It publishes no MIMIC-derived text, index, or result, and its accuracy is measured only against this app's own small fixed question set, not a general-purpose benchmark.</p>
-                                {% elif accuracy_pct is not none %}
-                                <p>Original smoke test: {{ accuracy_pct }}% keyword-hit accuracy on the recorded structural question set. Latency varies with local hardware and model state.</p>
-                                {% else %}
-                                <p>No evaluation result is currently available.</p>
-                                {% endif %}
+                                <p>Retrieval and answers are scored separately, on reviewed questions written after tuning ended. Retrieval intervals come from a bootstrap over questions and rate intervals are Wilson intervals, both at 95%. {% if public_demo %}The tables measure the local FLAN-T5 pipeline on the ten fabricated notes this site searches.{% else %}Real note results appear only after a local run writes its aggregate summary.{% endif %}</p>
                             </div>
-                            <div class="primary-figures">
-                                {% if public_demo %}
-                                <figure class="analysis-figure">
-                                    <img data-src="{{ url_for('static', filename='demo_eval_public_accuracy.png') }}" width="1782" height="658" alt="Public demo evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Original smoke test, accuracy.</strong> Keyword-hit results for this app's own fixed 10-question set, measured against the actual Gemini-backed retrieval and generation deployed here (with offline fallback). Not a general-purpose benchmark.</figcaption>
-                                </figure>
-                                <figure class="analysis-figure">
-                                    <img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Public demo evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
-                                    <figcaption id="latency-summary"><strong>Original smoke test, latency.</strong> Recorded response times for the same fabricated-record evaluation; answers come from the Gemini API, so timings include that network call.</figcaption>
-                                </figure>
-                                {% else %}
-                                <figure class="analysis-figure">
-                                    <img data-src="{{ url_for('static', filename='eval_accuracy.png') }}" width="1782" height="658" alt="Evaluation accuracy chart" loading="lazy" decoding="async" aria-describedby="accuracy-summary">
-                                    <figcaption id="accuracy-summary"><strong>Original smoke test, accuracy.</strong> Keyword-hit results for the fixed structural question set. This evaluation does not establish clinical validity.</figcaption>
-                                </figure>
-                                <figure class="analysis-figure">
-                                    <img data-src="{{ url_for('static', filename='eval_latency.png') }}" width="1782" height="658" alt="Evaluation latency chart" loading="lazy" decoding="async" aria-describedby="latency-summary">
-                                    <figcaption id="latency-summary"><strong>Original smoke test, latency.</strong> Recorded response times for the same evaluation run; local performance depends on hardware and runtime conditions.</figcaption>
-                                </figure>
-                                {% endif %}
+                            <div class="eval-changes">
+                                <h3>What changed since the first version</h3>
+                                <ol>
+                                    <li><strong>Retrieval.</strong> Each note section is indexed with a line of context from its own note, and section names match on word stems. The <code>dense_legacy</code> row below is the index before this change.</li>
+                                    <li><strong>Answers.</strong> Questions with several parts are split, list sections such as discharge medications are quoted word for word, and FLAN-T5 answers the rest.</li>
+                                    <li><strong>Testing.</strong> Settings were tuned on one question set, then scored once on held-out questions written afterwards. The old 10 question keyword test now sits in the appendix.</li>
+                                    <li><strong>Model choice.</strong> Qwen2.5-1.5B scored higher than FLAN-T5 on a second held-out set, but the gap wasn't statistically significant and it runs several times slower on a laptop CPU. FLAN-T5 stays the default for now.</li>
+                                </ol>
                             </div>
                             <div class="eval-results">
                                 <h3>Golden question set</h3>
-                                <p>Retrieval and answers are scored separately, on reviewed questions only. Retrieval intervals come from a bootstrap over questions, and rate intervals are Wilson intervals, all at 95%. {% if public_demo %}These numbers measure the local FLAN-T5 pipeline on the ten fabricated notes this site searches.{% else %}Real note results show only when a local run has written its aggregate summary.{% endif %}</p>
                                 {{ ev.golden_tables(eval_demo, 'fabricated demo notes') }}
                                 {% if eval_real %}{{ ev.golden_tables(eval_real, 'real notes') }}{% endif %}
                                 {{ ev.injection_table(eval_demo) }}
                             </div>
-                            {% if public_demo %}
-                            <div class="boundary-columns">
-                                <div>
-                                    <h3>Public path</h3>
-                                    <p>The hosted demo retrieves and generates via the Gemini API, with no model download and no process-local conversation memory, falling back to offline keyword matching if Gemini is unavailable.</p>
-                                </div>
-                                <div>
-                                    <h3>Full local path</h3>
-                                    <p>The SentenceTransformer, FAISS, FLAN-T5, and LangGraph workflow remains available for local use through the separate local dependency set.</p>
-                                </div>
-                            </div>
-                            {% endif %}
                         </section>
 
                         <section class="overview-section boundary-section" aria-labelledby="limitations-title">
@@ -693,7 +602,7 @@
                                     <ul>
                                         <li>The generator is general-purpose and may paraphrase, omit, or misstate information.</li>
                                         <li>The source-support check uses content-word and numeric overlap, not clinical verification.</li>
-                                        <li>Answer correctness is still scored by keyword assertions, on a question set that covers ten notes.</li>
+                                        <li>Answer correctness is scored by keyword assertions on questions about ten notes, written and checked by one person.</li>
                                     </ul>
                                 </div>
                             </div>
@@ -704,9 +613,9 @@
                                 <span>
                                     <span class="eyebrow">Expandable appendix</span>
                                     {% if public_demo %}
-                                    <strong>Deployment data boundary</strong>
+                                    <strong>Smoke test and deployment data boundary</strong>
                                     {% else %}
-                                    <strong>Dataset and chunking analysis</strong>
+                                    <strong>Smoke test, dataset and chunking analysis</strong>
                                     {% endif %}
                                 </span>
                                 <span class="summary-action" aria-hidden="true">Open</span>
@@ -717,6 +626,17 @@
                                 {% else %}
                                 <p>These diagnostics informed sampling, preprocessing, and length-bounded section chunking. Images load only when this appendix is expanded.</p>
                                 {% endif %}
+                                <h3 class="appendix-heading">Original 10 question smoke test</h3>
+                                <div class="appendix-grid">
+                                    {% if public_demo %}
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eval_public_accuracy.png') }}" width="1782" height="658" alt="Accuracy chart for the original 10 question smoke test on the public demo" loading="lazy" decoding="async"><figcaption><strong>Accuracy.</strong> Keyword hits on the fixed 10 question set, run against the Gemini path deployed here.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eval_public_latency.png') }}" width="1782" height="658" alt="Latency chart for the original 10 question smoke test on the public demo" loading="lazy" decoding="async"><figcaption><strong>Latency.</strong> Response times for the same run, including the call to the Gemini API.</figcaption></figure>
+                                    {% else %}
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eval_accuracy.png') }}" width="1782" height="658" alt="Accuracy chart for the original 10 question smoke test" loading="lazy" decoding="async"><figcaption><strong>Accuracy.</strong> Keyword hits on the fixed 10 question set. It shows the pipeline answers end to end and says nothing about clinical accuracy.</figcaption></figure>
+                                    <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='eval_latency.png') }}" width="1782" height="658" alt="Latency chart for the original 10 question smoke test" loading="lazy" decoding="async"><figcaption><strong>Latency.</strong> Response times for the same run, which depend on the local hardware.</figcaption></figure>
+                                    {% endif %}
+                                </div>
+                                <h3 class="appendix-heading">Dataset and chunking</h3>
                                 <div class="appendix-grid">
                                     {% if public_demo %}
                                     <figure class="analysis-figure"><img data-src="{{ url_for('static', filename='demo_eda_condition_subsets.png') }}" width="1184" height="659" alt="Distribution of condition-keyword coverage in the fabricated demo notes" loading="lazy" decoding="async"><figcaption><strong>Condition coverage.</strong> Keyword-matched distribution across the ten fabricated demo notes.</figcaption></figure>

@@ -5,9 +5,13 @@
 {% macro pct(x) %}{{ (x * 100) | round | int }}%{% endmacro %}
 {% macro dec(x) %}{{ '%.2f' | format(x) }}{% endmacro %}
 
-{% macro interval_mark(value, low, high) -%}
+{% macro interval_mark(value, low, high, before=none) -%}
 <svg class="result-interval" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true" focusable="false">
     <line class="result-interval__track" x1="0" y1="20" x2="100" y2="20"></line>
+    {%- if value is not none and before is not none %}
+    <line class="result-interval__before" x1="{{ '%.1f' | format(before * 100) }}" y1="12" x2="{{ '%.1f' | format(before * 100) }}" y2="27"></line>
+    <line class="result-interval__shift" x1="{{ '%.1f' | format(before * 100) }}" y1="5" x2="{{ '%.1f' | format(value * 100) }}" y2="5"></line>
+    {%- endif %}
     {%- if value is not none %}
     <line class="result-interval__range" x1="{{ '%.1f' | format(low * 100) }}" y1="20" x2="{{ '%.1f' | format(high * 100) }}" y2="20"></line>
     <line class="result-interval__point" x1="{{ '%.1f' | format(value * 100) }}" y1="12" x2="{{ '%.1f' | format(value * 100) }}" y2="27"></line>
@@ -15,11 +19,11 @@
 </svg>
 {%- endmacro %}
 
-{% macro result_row(label, value, low, high, detail, modifier) -%}
+{% macro result_row(label, value, low, high, detail, modifier, before=none) -%}
 <div class="dataset-result dataset-result--golden{% if modifier %} dataset-result--{{ modifier }}{% endif %}" data-ui-copy>
     <span>{{ label }}</span>
     <strong>{% if value is not none %}{{ pct(value) }}{% else %}Pending{% endif %}</strong>
-    {{ interval_mark(value, low, high) }}
+    {{ interval_mark(value, low, high, before) }}
     <small>{{ detail }}</small>
 </div>
 {%- endmacro %}
@@ -29,19 +33,28 @@
 {%- else %}{{ result_row(label, none, none, none, pending_note, 'pending') }}{% endif %}
 {%- endmacro %}
 
-{#- Case study rows: headline numbers for one corpus. -#}
-{% macro golden_rows(summary, heading) -%}
+{#- Case study rows, one per headline measure. Retrieval shows the index
+    before the contextual change (dense_legacy) as a second tick when that
+    variant was measured. The agreement row lives in the Overview tables. -#}
+{% macro landing_rows(summary, heading) -%}
 <p class="results-group">{{ heading }}</p>
 {% set retrieval = summary.retrieval if summary else none %}
 {% set default = (retrieval.variants | selectattr('name', 'equalto', retrieval.default) | first) if retrieval else none %}
+{% set legacy = (retrieval.variants | selectattr('name', 'equalto', 'dense_legacy') | first) if retrieval else none %}
 {% if default %}
-{{ result_row('Retrieval recall@5', default['recall@5'].mean, default['recall@5'].low, default['recall@5'].high,
-   '95% interval ' ~ pct(default['recall@5'].low) ~ ' to ' ~ pct(default['recall@5'].high) ~ ', ' ~ retrieval.n ~ ' questions, default retriever') }}
+{% set r = default['recall@5'] %}
+{{ result_row('Finds the right passage (recall@5)', r.mean, r.low, r.high,
+   ('Up from ' ~ pct(legacy['recall@5'].mean) ~ ' before the contextual index. ' if legacy else '') ~
+   '95% interval ' ~ pct(r.low) ~ ' to ' ~ pct(r.high) ~ ', ' ~ retrieval.n ~ ' questions',
+   none, legacy['recall@5'].mean if legacy else none) }}
 {% else %}
-{{ result_row('Retrieval recall@5', none, none, none, 'Waiting for question review', 'pending') }}
+{{ result_row('Finds the right passage (recall@5)', none, none, none, 'Waiting for question review', 'pending') }}
 {% endif %}
 {{ rate_row('Answer correctness', summary.generation.answer_correctness if summary and summary.generation else none, 'Waiting for question review') }}
-{{ rate_row('Agreement with human labels', summary.faithfulness.agreement if summary and summary.faithfulness else none, 'Waiting for human labels') }}
+{{ rate_row('Refuses when the note is silent', summary.generation.refusal_accuracy if summary and summary.generation else none, 'Waiting for question review') }}
+{% if summary and summary.public and summary.public.answer_correctness %}
+{{ rate_row('Answer correctness on the live Gemini site', summary.public.answer_correctness, '') }}
+{% endif %}
 {%- endmacro %}
 
 {#- Overview tables: the full comparison for one corpus. -#}

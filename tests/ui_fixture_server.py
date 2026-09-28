@@ -44,6 +44,9 @@ FIXTURE_EVAL_SUMMARY = {
         'variants': [
             {'name': 'dense', 'recall@5': _interval(0.7, 0.55, 0.84), 'mrr': _interval(0.6, 0.45, 0.74),
              'ndcg@5': _interval(0.58, 0.44, 0.71), 'diff_recall@5': None, 'p50_ms': 11.0, 'p95_ms': 15.0},
+            {'name': 'dense_legacy', 'recall@5': _interval(0.5, 0.35, 0.65), 'mrr': _interval(0.4, 0.27, 0.54),
+             'ndcg@5': _interval(0.42, 0.29, 0.55), 'diff_recall@5': _interval(-0.2, -0.36, -0.05),
+             'p50_ms': 11.0, 'p95_ms': 15.0},
             {'name': 'bm25', 'recall@5': _interval(0.4, 0.25, 0.55), 'mrr': _interval(0.3, 0.17, 0.45),
              'ndcg@5': _interval(0.3, 0.18, 0.44), 'diff_recall@5': _interval(-0.3, -0.47, -0.15),
              'p50_ms': 1.0, 'p95_ms': 1.0},

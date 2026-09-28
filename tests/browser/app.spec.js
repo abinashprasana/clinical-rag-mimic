@@ -42,13 +42,13 @@ const caseStudySections = [
   { id: "case-boundaries", key: "boundaries", heading: "What it checks, and what it doesn't decide" },
 ];
 
-// Updated on purpose for the golden question set copy (original smoke test
-// relabel, new results note, evaluation boundary line, answer correctness
-// headline cell). Data rows carry
-// data-ui-copy and are checked by the golden set tests below instead.
+// Updated on purpose for the declutter pass: shorter hero and story, the
+// five step pipeline, one dataset line, the stat strip moved to System
+// Overview, the smoke test folded into the results note, refreshed limits.
+// Data rows carry data-ui-copy and are checked by the golden set tests below.
 const editorialCopyDigests = {
-  local: "fc87a2fb6f30eb558a63dedb358fac3b573b2eae1ad01cb33c04f292c4f53dc4",
-  public: "02348f8b0d548f514fdf03c052b53729d19807e73ee851134304428feb1db7b1",
+  local: "80b173b1d7cdefb967ad953771a310b947f3c004632c72c6fc9c7287d8d52fe8",
+  public: "495446f41c6506e8c5ae3ba2f0c4522fd6f8a9210ad9957430bbae3d9b1ccd74",
 };
 
 const strictCsp = [
@@ -265,16 +265,17 @@ for (const mode of ["local", "public"]) {
       `Editorial copy changed in ${mode} mode. Current normalized copy:\n${copy.text}`,
     ).toBe(editorialCopyDigests[mode]);
 
+    // The stat strip now lives only in System Overview; the landing names the
+    // original smoke test once, in the note under the results figure.
     const evidence = page.locator("#case-evidence");
+    await expect(evidence.locator(".assurance-strip")).toHaveCount(0);
+    const note = evidence.locator(".dataset-results-note");
+    await expect(note).toContainText("70% on real notes and 80% on the demo notes");
     if (mode === "public") {
-      // The headline cell now reports the golden set; the original 10/10 run is named in the note.
-      await expect(evidence.getByText("Local FLAN-T5 pipeline, 18 of 30 questions, demo notes", { exact: true })).toHaveCount(1);
-      await expect(evidence.locator(".dataset-results-note")).toContainText("scored 10/10");
-      await expect(evidence.getByText("Fabricated notes, no patient data", { exact: true })).toHaveCount(1);
-      await expect(evidence.getByText("De-identified discharge notes", { exact: true })).toHaveCount(0);
+      await expect(note).toContainText("scored 10/10");
+      await expect(note).toContainText("local FLAN-T5 pipeline");
     } else {
-      await expect(evidence.getByText("De-identified discharge notes", { exact: true })).toHaveCount(1);
-      await expect(evidence.getByText("10/10 canonical checks", { exact: true })).toHaveCount(0);
+      await expect(note).not.toContainText("10/10");
     }
   });
 }
@@ -373,6 +374,51 @@ test("reduced motion keeps case-study reveals and depth effects static", async (
   const idleProbe = await page.evaluate(() => ({ ...window.__motionProbe }));
   expect(idleProbe.pending).toBe(0);
   expect(idleProbe.scheduled).toBe(settledProbe.scheduled);
+});
+
+async function pipelineState(page) {
+  return page.locator("#case-architecture .pipeline-diagram").evaluate((diagram) => ({
+    state: diagram.dataset.revealState,
+    stages: diagram.querySelectorAll(".pipeline-stage").length,
+    nodes: Array.from(diagram.querySelectorAll(".pipeline-node"))
+      .map((node) => getComputedStyle(node).backgroundColor),
+    connectors: Array.from(diagram.querySelectorAll(".pipeline-stage"))
+      .slice(0, -1)
+      .map((stage) => getComputedStyle(stage, "::before").transform),
+    running: diagram.getAnimations({ subtree: true })
+      .filter((animation) => animation.playState === "running").length,
+  }));
+}
+
+test("landing pipeline shows five steps drawn in full under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await gotoLanding(page);
+  const result = await pipelineState(page);
+  expect(result.state).toBe("revealed");
+  expect(result.stages).toBe(5);
+  expect(new Set(result.nodes)).toEqual(new Set(["rgb(98, 199, 208)"]));
+  expect(result.connectors).toEqual(Array(4).fill("none"));
+  expect(result.running).toBe(0);
+});
+
+test("landing pipeline draws once on scroll and then stays still", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await gotoLanding(page);
+  const before = await pipelineState(page);
+  expect(before.state).toBe("pending");
+  expect(before.connectors).toEqual(Array(4).fill("matrix(0, 0, 0, 1, 0, 0)"));
+
+  await page.locator("#case-architecture .pipeline-diagram").evaluate((diagram) => {
+    const landing = document.getElementById("landing");
+    landing.scrollTop += diagram.getBoundingClientRect().top - 120;
+  });
+  await expect.poll(async () => (await pipelineState(page)).state).toBe("revealed");
+  // Connectors, nodes and the travelling dot finish within about 3.2s.
+  await page.waitForTimeout(3600);
+  const after = await pipelineState(page);
+  expect(after.running).toBe(0);
+  expect(after.connectors).toEqual(Array(4).fill("none"));
+  expect(new Set(after.nodes)).toEqual(new Set(["rgb(98, 199, 208)"]));
 });
 
 test("case study remains readable and navigable when JavaScript is disabled", async ({ browser }) => {
@@ -1026,21 +1072,28 @@ test("full loads and repeated resets create isolated client thread IDs", async (
   }
 });
 
-test("case study shows the original smoke test beside golden set rows with intervals", async ({ page }) => {
+test("case study shows held-out rows with intervals and the retrieval before and after", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await gotoLanding(page, "public");
   const results = page.locator("#case-evidence .dataset-results");
-  await expect(results.locator(".results-group").first()).toHaveText("Original smoke test (10 questions, keyword match)");
-  await expect(results.locator(".dataset-result--real strong")).toHaveText("70%");
-  await expect(results.locator(".dataset-result--demo strong")).toHaveText("80%");
+  await expect(results.locator(".results-group").first()).toHaveText("Held-out questions, fabricated demo notes");
+  await expect(results.locator(".result-plot")).toHaveCount(0);
   const golden = results.locator(".dataset-result--golden");
   await expect(golden).toHaveCount(3);
-  await expect(golden.nth(0)).toContainText("Retrieval recall@5");
+  await expect(golden.nth(0)).toContainText("Finds the right passage (recall@5)");
   await expect(golden.nth(0).locator("strong")).toHaveText("70%");
+  await expect(golden.nth(0)).toContainText("Up from 50% before the contextual index.");
   await expect(golden.nth(0)).toContainText("95% interval 55% to 84%");
   await expect(golden.nth(0).locator("svg.result-interval")).toHaveAttribute("aria-hidden", "true");
   await expect(golden.nth(0).locator(".result-interval__range")).toHaveAttribute("x1", "55.0");
-  await expect(golden.nth(2).locator("strong")).toHaveText("Pending");
+  await expect(golden.nth(0).locator(".result-interval__before")).toHaveAttribute("x1", "50.0");
+  await expect(golden.nth(1).locator("strong")).toHaveText("60%");
+  await expect(golden.nth(2)).toContainText("Refuses when the note is silent");
+  await expect(golden.nth(2).locator("strong")).toHaveText("38%");
+  await expect(golden.nth(2).locator(".result-interval__before")).toHaveCount(0);
+  // The reveal leaves every interval fully drawn under reduced motion.
+  expect(await golden.nth(0).locator("svg.result-interval").evaluate((svg) => getComputedStyle(svg).clipPath))
+    .not.toContain("100%");
   const axe = await new AxeBuilder({ page }).include("#case-evidence").analyze();
   expect(axe.violations).toEqual([]);
 });
