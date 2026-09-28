@@ -42,6 +42,9 @@ FIELDS = {
     'relevant': list, 'must_contain': list, 'must_not_contain': list,
     'reviewed': bool, 'notes': str,
 }
+# scope_note_id: the admission (hadm_id) a question is about, so a note
+# scoped run answers it from that note only. Optional.
+OPTIONAL_FIELDS = {'scope_note_id': str}
 _ID_RE = re.compile(r'^q\d{3}$')
 _DASHES = dict.fromkeys(map(ord, '‐‑‒–—―−'), '-')
 
@@ -94,8 +97,14 @@ def validate(questions, corpus=None):
                 errors.append((qid, f'missing field {field}'))
             elif not isinstance(q[field], kind):
                 errors.append((qid, f'{field} must be {kind.__name__}'))
-        for field in sorted(set(q) - set(FIELDS)):
+        for field in sorted(set(q) - set(FIELDS) - set(OPTIONAL_FIELDS)):
             errors.append((qid, f'unknown field {field}'))
+        scope = q.get('scope_note_id')
+        if scope is not None:
+            if not isinstance(scope, str):
+                errors.append((qid, 'scope_note_id must be str'))
+            elif corpus is not None and scope not in corpus.sections_by_note():
+                errors.append((qid, f'scope_note_id {scope} is not in the index'))
         if not isinstance(q.get('id'), str) or not _ID_RE.match(q['id']):
             errors.append((qid, 'id must look like q001'))
         elif qid in seen:

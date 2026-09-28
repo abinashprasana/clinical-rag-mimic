@@ -26,15 +26,21 @@ def gold_keys(question):
     return {(str(r['note_id']), r['section']) for r in question['relevant']}
 
 
-def evaluate_variant(retriever, corpus, questions, k=5):
+def evaluate_variant(retriever, corpus, questions, k=5, scope_note=False):
     """Per question records for one variant. The first question is run once
-    untimed as a warm up so model loading does not land in latency."""
+    untimed as a warm up so model loading does not land in latency. With
+    scope_note, each question is answered from its scope_note_id note only."""
+    def run(q):
+        if scope_note:
+            return retriever.retrieve(q['question'], k=k, note=q.get('scope_note_id'))
+        return retriever.retrieve(q['question'], k=k)
+
     if questions:
-        retriever.retrieve(questions[0]['question'], k=k)
+        run(questions[0])
     records = []
     for q in questions:
         start = time.perf_counter()
-        indices = retriever.retrieve(q['question'], k=k)
+        indices = run(q)
         latency_ms = (time.perf_counter() - start) * 1000
         keys = [corpus.keys[i] for i in indices]
         records.append({
@@ -121,6 +127,8 @@ def main(argv=None):
     parser.add_argument('--file', help='override the golden file path')
     parser.add_argument('--split', choices=['all', 'dev', 'test'], default='all',
                         help='frozen half of the demo set (evals/golden/demo_split.json)')
+    parser.add_argument('--scope', choices=['all', 'note'], default='all',
+                        help='note: answer each question from its scope_note_id note only (dense variants)')
     args = parser.parse_args(argv)
     common.guard_real_data(args.corpus)
 
@@ -142,7 +150,15 @@ def main(argv=None):
         return 2
 
     retrievers = build_retrievers(corpus, args.variants)
-    records_by_variant = {v: evaluate_variant(retrievers[v], corpus, questions) for v in args.variants}
+    scoped = args.scope == 'note'
+    if scoped:
+        unsupported = [v for v in args.variants if not getattr(retrievers[v], 'supports_note_scope', False)]
+        if unsupported:
+            print(f'--scope note supports the dense variants only; drop {unsupported}.')
+            return 2
+        questions = [q for q in questions if q.get('scope_note_id')]
+    records_by_variant = {v: evaluate_variant(retrievers[v], corpus, questions, scope_note=scoped)
+                          for v in args.variants}
 
     result = {
         'meta': common.run_metadata(args.corpus, args.include_unreviewed, len(questions)),
@@ -153,6 +169,7 @@ def main(argv=None):
     }
     agg_dir, records_dir = common.output_dirs(args.corpus, args.include_unreviewed)
     file_tag = '' if not args.file else '_' + os.path.basename(args.file).split('.')[0]
+    file_tag += '_note_scoped' if scoped else ''
     stem = (f'retrieval_{args.corpus}' + file_tag + ('' if args.split == 'all' else f'_{args.split}')
             + ('.unreviewed' if args.include_unreviewed else ''))
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)

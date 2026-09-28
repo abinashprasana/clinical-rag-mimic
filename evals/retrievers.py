@@ -70,10 +70,12 @@ class DenseRetriever:
         self.header_boost = header_boost
         self.options = {'stem_headers': stem_headers, 'note_first': note_first}
 
-    def retrieve(self, question, k=5):
+    supports_note_scope = True
+
+    def retrieve(self, question, k=5, note=None):
         results = retrieve_chunks(
             question, self.embed_model, self.index, self.chunks, self.provenance,
-            k=k, header_boost=self.header_boost, **self.options,
+            k=k, header_boost=self.header_boost, note_filter=note, **self.options,
         )
         return [r['chunk_idx'] for r in results]
 
@@ -132,9 +134,22 @@ def _index_over(embed_model, texts):
     return index
 
 
+PRE_CONTEXTUAL_INDEX = 'faiss_index.pre_contextual.index'
+
+
 def plain_index(embed_model, corpus):
     """FAISS index over the plain chunk text, as the index was built before
-    contextual index text."""
+    contextual index text. Reuses the saved pre-change index when the corpus
+    folder has one (the real index takes about 45 minutes to re-embed on a
+    CPU), provided it covers the same number of chunks."""
+    import os
+
+    import faiss
+    saved = os.path.join(corpus.output_dir or '', PRE_CONTEXTUAL_INDEX)
+    if corpus.output_dir and os.path.exists(saved):
+        index = faiss.read_index(saved)
+        if index.ntotal == len(corpus.chunks):
+            return index
     return _index_over(embed_model, corpus.chunks)
 
 

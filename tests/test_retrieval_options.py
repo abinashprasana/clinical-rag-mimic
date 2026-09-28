@@ -70,6 +70,17 @@ def test_note_first_keeps_results_inside_the_top_note_first():
     assert {r['hadm_id'] for r in results} == {10}
 
 
+def test_note_filter_answers_from_one_admission_only():
+    question = 'What medications was the patient discharged on?'
+    index = index_over(CHUNKS)
+    scoped = retrieve_chunks(question, BagOfWords(), index, CHUNKS, PROVENANCE, k=5, note_filter='20')
+    assert scoped and {r['hadm_id'] for r in scoped} == {20}
+    assert scoped[0]['chunk_idx'] == 4   # that admission's medication list
+    unscoped = retrieve_chunks(question, BagOfWords(), index, CHUNKS, PROVENANCE, k=5)
+    assert {r['hadm_id'] for r in unscoped} == {10, 20}
+    assert retrieve_chunks(question, BagOfWords(), index, CHUNKS, PROVENANCE, k=5, note_filter='999') == []
+
+
 def test_defaults_follow_config():
     assert config.CONTEXTUAL_INDEX is True and config.RETRIEVAL_STEM_HEADERS is True
     assert config.GENERATION_TOP_K >= 1

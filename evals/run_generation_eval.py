@@ -76,8 +76,10 @@ def is_correct(question, record):
     raise ValueError(behavior)
 
 
-def run_agent(questions, graph):
-    """One fresh thread per question, so no conversation memory leaks between them."""
+def run_agent(questions, graph, scope_note=False):
+    """One fresh thread per question, so no conversation memory leaks between
+    them. With scope_note, each question is answered from its scope_note_id
+    note only."""
     import agent.graph as agent_graph
     reflections = []
     observer = lambda q, draft, reflection, attempt: reflections.append(
@@ -91,6 +93,7 @@ def run_agent(questions, graph):
             state = graph.invoke({
                 'question': q['question'], 'step_count': 0, 'reflection_regenerated': False,
                 'needs_clarification': False, 'route': None, 'retrieved_chunks': [], 'fda_result': None,
+                'note_filter': q.get('scope_note_id') if scope_note else None,
             }, config={'configurable': {'thread_id': str(uuid.uuid4())}})
             first = reflections[0] if reflections else None
             records.append({
@@ -227,6 +230,8 @@ def main(argv=None):
     parser.add_argument('--no-legacy', action='store_true', help='skip the original 10 question row')
     parser.add_argument('--file', help='override the golden file path')
     parser.add_argument('--tag', help='suffix for the output files, for side by side model comparisons')
+    parser.add_argument('--scope', choices=['all', 'note'], default='all',
+                        help='note: answer each question from its scope_note_id note only')
     parser.add_argument('--split', choices=['all', 'dev', 'test'], default='all',
                         help='frozen half of the demo set (evals/golden/demo_split.json)')
     args = parser.parse_args(argv)
@@ -260,7 +265,7 @@ def main(argv=None):
     generator = load_generator()
     graph = build_graph(embed_model, index, corpus.chunks, corpus.provenance, generator)
 
-    records = run_agent(questions, graph)
+    records = run_agent(questions, graph, scope_note=args.scope == 'note')
     result = {
         'meta': common.run_metadata(args.corpus, args.include_unreviewed, len(questions)),
         'generator': config.LOCAL_GENERATOR_MODEL,
@@ -274,7 +279,8 @@ def main(argv=None):
                             if args.corpus == 'demo' else legacy_real())
 
     agg_dir, records_dir = common.output_dirs(args.corpus, args.include_unreviewed)
-    file_tag = ('' if not args.file else '_' + os.path.basename(args.file).split('.')[0]) + (f'_{args.tag}' if args.tag else '')
+    file_tag = (('' if not args.file else '_' + os.path.basename(args.file).split('.')[0])
+                + (f'_{args.tag}' if args.tag else '') + ('_note_scoped' if args.scope == 'note' else ''))
     stem = (f'generation_{args.corpus}' + file_tag + ('' if args.split == 'all' else f'_{args.split}')
             + ('.unreviewed' if args.include_unreviewed else ''))
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)

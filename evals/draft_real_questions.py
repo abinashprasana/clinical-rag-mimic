@@ -169,7 +169,7 @@ def candidates(note_id, sections, who):
                 'question': f'Who should {subject} follow up with after discharge?',
                 'relevant': rel(note_id, 'Discharge Instructions'), 'must_contain': [specialty]}))
             break
-    return out
+    return [(category, {**record, 'scope_note_id': note_id}) for category, record in out]
 
 
 BEHAVIOR = {'unanswerable': 'refuse', 'fda_dosage': 'fda_lookup', 'ambiguous': 'clarify'}
@@ -205,10 +205,13 @@ def draft(corpus, targets, seed=20260928):
             chosen.append((category, record))
     rows = []
     for n, (category, record) in enumerate(chosen, 1):
-        rows.append({'id': f'q{n:03d}', 'category': category, 'question': record['question'],
-                     'expected_behavior': BEHAVIOR.get(category, 'answer'), 'relevant': record['relevant'],
-                     'must_contain': record['must_contain'], 'must_not_contain': record.get('must_not_contain', []),
-                     'reviewed': False, 'notes': NOTE})
+        row = {'id': f'q{n:03d}', 'category': category, 'question': record['question'],
+               'expected_behavior': BEHAVIOR.get(category, 'answer'), 'relevant': record['relevant'],
+               'must_contain': record['must_contain'], 'must_not_contain': record.get('must_not_contain', []),
+               'reviewed': False, 'notes': NOTE}
+        if record.get('scope_note_id'):
+            row['scope_note_id'] = record['scope_note_id']
+        rows.append(row)
     stats = {'notes': len(by_note), 'named_uniquely': len(unique),
              'pool': {c: len(p) for c, p in pools.items()}, 'drafted': dict(Counter(c for c, _ in chosen))}
     return rows, stats

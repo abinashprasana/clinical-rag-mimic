@@ -28,6 +28,7 @@ class AgentState(TypedDict, total=False):
     drug_name: Optional[str]
     retrieved_chunks: list[RetrievedChunk]
     part_evidence: list                        # [(question part, chunks)] in hybrid answer mode
+    note_filter: Optional[str]                 # answer only from this admission's note (hadm_id)
     fda_result: Optional[dict]
     draft_answer: Optional[str]
     reflection: Optional[Reflection]

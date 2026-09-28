@@ -72,7 +72,7 @@ def _header_boost(chunk_text, query_words, weight=0.15, stem=False):
     return weight * overlap
 
 def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT_TOP_K,
-                    header_boost=True, stem_headers=None, note_first=False):
+                    header_boost=True, stem_headers=None, note_first=False, note_filter=None):
     """Returns up to k chunks with their similarity score and source
     subject_id/hadm_id, so answers can be cited back to a real note.
     Near-duplicate passages (from overlapping chunk windows) are dropped in
@@ -82,18 +82,25 @@ def retrieve_chunks(question, model, index, chunks, provenance, k=config.DEFAULT
     stem_headers compares Porter stems of question and header words.
     note_first picks the note of the best candidate, then ranks every
     section of that note (two-stage retrieval, as in CLI-RAG,
-    arXiv:2507.06715), filling any remaining slots from the global list."""
+    arXiv:2507.06715), filling any remaining slots from the global list.
+    note_filter, an admission id (hadm_id), restricts retrieval to that one
+    note, the way a chart reviewer asks about the admission they have open;
+    None (the default) searches every note as before."""
     query_vec = model.encode([question]).astype('float32')
     # FAISS FIX: Normalise query for Inner Product
     faiss.normalize_L2(query_vec)
-    # Search a wider candidate pool than k so de-duplication still leaves
-    # up to k distinct passages instead of shrinking below it.
-    scores, indices = index.search(query_vec, min(k * 3, len(chunks)))
 
     if stem_headers is None:
         stem_headers = config.RETRIEVAL_STEM_HEADERS
     query_words = _normalized_words(question, stem=stem_headers)
-    candidates = [(i, score) for score, i in zip(scores[0], indices[0]) if i >= 0]
+    if note_filter is not None:
+        in_note = [i for i, p in enumerate(provenance) if str(p['hadm_id']) == str(note_filter)]
+        candidates = [(i, float(query_vec[0] @ index.reconstruct(int(i)))) for i in in_note]
+    else:
+        # Search a wider candidate pool than k so de-duplication still leaves
+        # up to k distinct passages instead of shrinking below it.
+        scores, indices = index.search(query_vec, min(k * 3, len(chunks)))
+        candidates = [(i, score) for score, i in zip(scores[0], indices[0]) if i >= 0]
     # Re-rank by similarity plus header-relevance boost; the displayed
     # "score" stays the raw similarity so it keeps meaning what it says.
     # Keep this lightweight header signal instead of adding another model-

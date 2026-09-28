@@ -99,12 +99,15 @@ def make_retrieve_node(embedding_model, faiss_index, chunks, provenance):
     loaded once at app startup rather than reloading them per call."""
     def retrieve_node(state: AgentState) -> AgentState:
         state['step_count'] += 1
+        # Optional: answer only from one admission's note (see
+        # core.retrieval.retrieve_chunks); unset for normal app requests.
+        note_filter = state.get('note_filter')
         if config.ANSWER_MODE == 'hybrid':
             # Retrieve each part of a two-part question on its own; cite the
             # union of their passages, best first, without repeats.
             state['part_evidence'] = [
                 (part, retrieve_chunks(part, embedding_model, faiss_index, chunks, provenance,
-                                       k=config.DEFAULT_TOP_K))
+                                       k=config.DEFAULT_TOP_K, note_filter=note_filter))
                 for part in decompose(state['question'])
             ]
             merged = {}
@@ -115,7 +118,7 @@ def make_retrieve_node(embedding_model, faiss_index, chunks, provenance):
             return state
         state['retrieved_chunks'] = retrieve_chunks(
             state['question'], embedding_model, faiss_index, chunks, provenance,
-            k=config.DEFAULT_TOP_K,
+            k=config.DEFAULT_TOP_K, note_filter=note_filter,
         )
         return state
     return retrieve_node
