@@ -257,14 +257,15 @@ The live public demo deployed on Vercel doesn't load SentenceTransformers/FAISS/
 Concretely, `demo/runtime.py`:
 - Embeds the incoming question via Gemini's `gemini-embedding-001` and matches it against `outputs_demo/gemini_chunk_embeddings.pkl`, precomputed embeddings for the exact same 101 chunks (`outputs_demo/chunks_data.pkl`) the local pipeline retrieves against, re-ranked with the same header-relevance boost `core/retrieval.py` uses for the real dataset.
 - Generates the answer with Gemini (`gemini-flash-lite-latest`, a separate model from `GEMINI_MODEL`) from the retrieved passages, using the same system prompt as the local FLAN-T5 pipeline. This is deliberately not the same model the local app uses for routing/reflection: that model's free tier caps `generateContent` at only 20 requests/day, discovered by hitting that exact limit during development, which is nowhere near enough for a public demo answering anonymous visitors. `gemini-flash-lite-latest`'s free tier (roughly 1,000-1,500 requests/day) is sized for that instead, on a completely separate quota.
-- Runs that generated answer through the same local faithfulness check (`agent/reflection.py`'s content-word/numeric overlap check) the local pipeline uses, with one retry if it fails, before ever showing it.
+- Runs that generated answer through the same local faithfulness check the local pipeline uses (`agent/reflection.py`: word overlap, each value tied to its subject in the passages, and no finding the note records as absent), with one retry if it fails, before ever showing it. An answer that still fails is replaced by a direct quote of the passages.
+- Has no router of its own. A question containing words such as "dose" or "dosage" gets a fixed notice that the demo gives no dosing advice; everything else goes to retrieval. There is no FDA label lookup and no clarify step, which is why the public app scores 2 of 5 on routing in the Evaluation table.
 - Falls back to a fully offline, deterministic keyword-matching method if `GEMINI_API_KEY` isn't configured or any Gemini call fails for any reason (quota, network, timeout). The app stays functional either way, just cruder without a key, the same pattern `agent/llm.py` already uses for local routing.
 
 `python -m demo.evaluate_public` runs the same 10-question keyword-hit check against this pipeline. Its result is reported as a raw count, not a percentage, and deliberately not placed in the accuracy table above: a bare "100%" sitting next to the real dataset's 70% and the local synthetic demo's 80% would misleadingly read as "the deployed demo beats the real research pipeline," when all three numbers are actually the same small 10-question smoke test, not a benchmark that scales to general reliability.
 
 | Metric | Public Vercel demo (Gemini-backed RAG) |
 |---|---|
-| Canonical checks passed | 10/10 (not a benchmark; see note above) |
+| Canonical checks passed | 10/10 (not a benchmark; see note above; the held-out results are in the Evaluation table) |
 | Mean Latency | ~1.5s per question |
 
 ## 🧠 How It Works
@@ -278,15 +279,15 @@ flowchart TD
     Q["User question"] --> Route
 
     Route{"Route\n(Gemini if configured,\notherwise local keyword rules)"}
-    Route -->|record question| Retrieve["Retrieve top-5 chunks\n(FAISS + sentence embedding)"]
+    Route -->|record question| Retrieve["Retrieve top-5 chunks\n(FAISS, contextual index)"]
     Route -->|drug dosage question| Dosage["openFDA label lookup"]
     Route -->|too ambiguous| Clarify["Ask a clarifying question"]
 
-    Retrieve --> Generate["Flan-T5 local generation\n(grounded in retrieved text)"]
+    Retrieve --> Generate["Hybrid answering\n(list sections quoted,\nthe rest by FLAN-T5)"]
     Dosage -->|drug found| Card["Render FDA label card directly\n(no paraphrase of dosage text)"]
     Dosage -->|drug not found| Generate
 
-    Generate --> Reflect["Local faithfulness check\n(content-word + numeric overlap\nagainst retrieved text)"]
+    Generate --> Reflect["Local faithfulness check\n(word overlap, values tied to\ntheir subject, negations kept)"]
     Reflect -->|unsupported, first try| Generate
     Reflect -->|supported| Respond["Response + cited passages"]
     Reflect -->|still unsupported| Refuse["Refusal, cites passages for review"]
