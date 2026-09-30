@@ -3,10 +3,12 @@
     "corpus": "demo",
     "reviewed_only": true,
     "n_questions": 40,
-    "run_at": "2026-09-26T22:07:31+00:00",
-    "git_commit": "50c942f"
+    "run_at": "2026-09-30T18:26:15+00:00",
+    "git_commit": "c922279"
   },
   "generator": "google/flan-t5-base",
+  "answer_mode": "hybrid",
+  "judge": "google/flan-t5-large",
   "routing": "offline keyword rules; openFDA stubbed",
   "scores": {
     "headline": {
@@ -118,6 +120,6 @@
       },
       "answerable_refused_by_gate": 1
     },
-    "mean_latency_s": 10.696929415001069
+    "mean_latency_s": 5.52343765499536
   }
 }

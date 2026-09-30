@@ -26,9 +26,17 @@ def test_stress_counts_known_gate_blind_spots():
     counts = run_stress([('The patient takes furosemide 60 mg and denies chest pain.', [PASSAGE])])
     assert counts['number_swap_absent'] == {'n': 1, 'detected': 1}
     assert counts['insert_fact'] == {'n': 1, 'detected': 1}
-    # the gate checks numbers against the whole context and ignores negation words
-    assert counts['number_swap_in_context'] == {'n': 1, 'detected': 0}
-    assert counts['drop_negation']['n'] == 1
+    # 20 is in the passage, but as the potassium dose, not the furosemide one
+    assert counts['number_swap_in_context'] == {'n': 1, 'detected': 1}
+    # "chest pain" is only ever denied in the passage
+    assert counts['drop_negation'] == {'n': 1, 'detected': 1}
+
+
+def test_number_swaps_skip_list_numbering():
+    passage = '[Discharge Medications] 1. Amlodipine 5 mg PO daily 2. Metformin 500 mg PO BID'
+    out = corrupt('1. Amlodipine 5 mg PO daily', passage)
+    assert out['number_swap_absent'].startswith('1. Amlodipine ')   # the marker is left alone
+    assert out['number_swap_in_context'] == '1. Amlodipine 500 mg PO daily'
 
 
 def test_agreement_statistics():

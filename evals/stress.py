@@ -12,7 +12,7 @@ rows, marked synthetic, and never blended with the human label numbers.
 """
 import re
 
-from agent.reflection import local_reflect
+from agent.reflection import local_reflect, value_matches
 
 CORRUPTIONS = ('number_swap_absent', 'number_swap_in_context', 'insert_fact', 'drop_negation')
 
@@ -33,14 +33,26 @@ def _numbers(text):
     return _NUMBER_RE.findall(text)
 
 
+# Anything that might be list numbering ("1." at the start or before a
+# capitalised word) is left alone, so a swap always changes a real value.
+_MAYBE_MARKER_RE = re.compile(r'(?:^|(?<=\n)|(?<![\d.,])\b)\d{1,2}\.(?=\s+[A-Z(\[]|$)', re.MULTILINE)
+
+
+def _value_matches(text):
+    maybe = {m.start() for m in _MAYBE_MARKER_RE.finditer(text)}
+    return [m for m in value_matches(text) if m.start() not in maybe]
+
+
 def _swap_first_number(draft, replacement_for):
-    match = _NUMBER_RE.search(draft)
-    if not match:
-        return None
-    new = replacement_for(match.group())
-    if new is None or new == match.group():
-        return None
-    return draft[:match.start()] + new + draft[match.end():]
+    """Replaces the first clinical number (list markers skipped) with
+    replacement_for(value). A replacement that equals the value numerically,
+    such as 5 for 5.0, is not a corruption and is skipped."""
+    for match in _value_matches(draft):
+        new = replacement_for(match.group())
+        if new is None or float(new) == float(match.group()):
+            continue
+        return draft[:match.start()] + new + draft[match.end():]
+    return None
 
 
 def corrupt(draft, context_text):
@@ -54,8 +66,12 @@ def corrupt(draft, context_text):
             candidate += 11
         return str(candidate)
 
+    # Another clinical value from the same passages (list markers excluded),
+    # numerically different from the one it replaces.
+    context_values = sorted({m.group() for m in _value_matches(context_text)})
+
     def present(value):
-        others = sorted(n for n in context_numbers if n != value)
+        others = [n for n in context_values if float(n) != float(value)]
         return others[0] if others else None
 
     for name, fn in (('number_swap_absent', absent), ('number_swap_in_context', present)):

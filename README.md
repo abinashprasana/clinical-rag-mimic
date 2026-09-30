@@ -139,18 +139,30 @@ On the holdout, the local agent answered 1 of 5 negation questions correctly ("D
 
 TODO: these numbers need my labels, which I have not done yet.
 
-From the code, three gaps in the check are already clear: it ignores "no" and "not" as stopwords, compares numbers against every retrieved passage at once, and skips a sentence with no content words, such as a lone "31.".
+### Stress test and the fixes to the check
 
-A synthetic stress set (`evals/stress.py`) measures the first two without any labels. It takes answers the check passed and breaks them on purpose, in the style of FactCC (Kryściński et al., EMNLP 2020), so every broken answer is unsupported by construction. Run on 30 September 2026 over the drafts from the 100 tuning questions, with `python -m evals.faithfulness_agreement --corpus demo --stress-source gate-passed`:
+Reading the code showed three gaps in the check: it dropped "no" and "not" as stopwords, compared numbers against every retrieved passage at once, and skipped a sentence with no content words, such as a lone "31.". A synthetic stress set (`evals/stress.py`) measures them without any labels. It takes answers the check passed and breaks them on purpose, in the style of FactCC (Kryściński et al., EMNLP 2020), so every broken answer is unsupported by construction. The source answers are the drafts from the 100 tuning questions (`python -m evals.faithfulness_agreement --corpus demo --stress-source gate-passed`).
 
-| Corruption | Caught by the check |
-|---|---|
-| A number swapped for one found nowhere in the passages | 27 of 45, 60% (45% to 73%) |
-| A number swapped for another number that is in the passages | 0 of 45, 0% (0% to 8%) |
-| An invented clinical sentence added | 71 of 88, 81% (71% to 88%) |
-| "no", "not" or "denies" removed, reversing the finding | 0 of 18, 0% (0% to 18%) |
+The first version of the stress set was itself wrong in one way: its number swaps often changed list numbering ("1." to "10.") instead of a dose or lab value, which is not a factual error. It now leaves anything that might be list numbering alone, and never swaps a number for an equal one such as 5 for 5.0. With that corrected, on 30 September 2026:
 
-The two zeros confirm the gaps above: an answer that flips "no fever" to "fever", or swaps a dose for another number from the same note, passes the check every time. These rows are synthetic, so they say nothing about how often such errors happen in real answers. The human label numbers above stay pending.
+| Deliberate error | Old check | New check |
+|---|---|---|
+| A number changed to one found nowhere in the passages | 44 of 45, 98% (88% to 100%) | 45 of 45, 100% (92% to 100%) |
+| A number changed to another value from the same passages | 0 of 45, 0% (0% to 8%) | 35 of 45, 78% (64% to 87%) |
+| An invented clinical sentence added | 71 of 88, 81% (71% to 88%) | 71 of 88, 81% (71% to 88%) |
+| "no", "not" or "denies" removed, reversing the finding | 0 of 18, 0% (0% to 18%) | 18 of 18, 100% (82% to 100%) |
+
+The two zeros were real: the old check passed "chest pain and fevers" when the note said "no chest pain, no fevers", and passed "Donepezil 500 mg" when 500 was the cephalexin dose. The new check in `agent/reflection.py` adds three rules:
+
+1. **Numbers stay with their subject.** A value must sit in the same clause of the passages as at least one of the words around it in the answer, with common chart abbreviations matched (respiratory rate to RR, blood pressure to BP). List numbering is ignored on both sides.
+2. **An absent finding cannot be asserted.** Words the passages mention only inside a negation ("no ketones", "denies chest pain", a NegEx style scope, Chapman et al. 2001) cannot appear in an answer outside one.
+3. **Lone values are checked.** A sentence that is just a value, such as "31.", still needs that value in the passages. List numbering only counts as numbering when the next or previous number of the list is also there, so "RR 26. No chest pain" keeps 26 as a value.
+
+The 10 in-note swaps it still misses are mostly answers that are only a value ("95%.", "BNP 1850."), where there is no word in the answer to tie the value to.
+
+A stricter check can refuse correct answers, so the new one was replayed on every saved answer, 544 saved local answers from FLAN-T5, Qwen2.5 and Qwen3 across the tuning questions and both holdouts. It blocks none that the old check passed. The first holdout was rerun end to end with it and scores the same (20 of 29, refusal 5 of 6). The public site runs this same check on its Gemini answers (`demo/runtime.py` calls `local_reflect`), so 34 fresh Gemini answers to the first holdout were judged by both versions. The new check changed one decision: it blocked an answer that paired the right sodium value with a second one taken from a different patient's note, which the keyword scorer had counted as correct. On the public site a blocked answer is retried once and then replaced by a direct quote of the passages.
+
+Two cautions. While fixing false blocks I looked at answers from both holdouts, so the check's own design is no longer independent of them; the stress numbers above come from the tuning questions only. And these rows are synthetic, so they show what the check can catch, not how often such errors occur. The human label numbers above stay pending.
 
 ### Regression gate
 
