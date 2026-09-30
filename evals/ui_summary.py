@@ -30,6 +30,14 @@ def _interval(row):
     return {'mean': row['mean'], 'low': row['low'], 'high': row['high']}
 
 
+def _wilson(k, n, z=1.959964):
+    """95% Wilson interval (standard library only, as this module is)."""
+    p = k / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
 def _rate(row):
     return {k: row[k] for k in ('k', 'n', 'rate', 'low', 'high')} if row and row.get('n') else None
 
@@ -84,10 +92,18 @@ def build_summary(results_dir, corpus):
                 'false_pass': _rate(a['false_pass']), 'false_refusal': _rate(a['false_refusal']),
                 'self_agreement': _rate(s.get('agreement_binary')),
             }
+        # Synthetic corruptions, reported on their own and never blended with
+        # the human label numbers. The source says which answers were broken.
         stress = faithfulness['stress']
-        if stress['source'].startswith('answers labelled supported'):
-            rows = [{'name': k, 'k': v['detected'], 'n': v['n']} for k, v in stress['counts'].items() if v['n']]
-            summary['stress'] = {'rows': rows} if rows else None
+        rows = []
+        for name, v in stress['counts'].items():
+            if v['n']:
+                low, high = _wilson(v['detected'], v['n'])
+                rows.append({'name': name, 'k': v['detected'], 'n': v['n'],
+                             'rate': v['detected'] / v['n'], 'low': low, 'high': high})
+        if rows:
+            source = 'human-labelled' if stress['source'].startswith('answers labelled supported') else 'gate-passed'
+            summary['stress'] = {'rows': rows, 'source': source, 'run_at': faithfulness['meta']['run_at']}
 
     public = public or (_read(os.path.join(results_dir, 'public_demo.json')) if corpus == 'demo' else None)
     if public and public.get('answered_by_gemini'):
@@ -138,6 +154,9 @@ def valid(summary):
     f = summary.get('faithfulness')
     if f is not None and not all(_valid_rate(f.get(k)) for k in
                                  ('agreement', 'false_pass', 'false_refusal', 'self_agreement')):
+        return False
+    s = summary.get('stress')
+    if s is not None and not (isinstance(s.get('rows'), list) and all(_valid_rate(r) for r in s['rows'])):
         return False
     p = summary.get('public')
     return p is None or all(_valid_rate(p.get(k)) for k in ('answer_correctness', 'refusal_accuracy'))

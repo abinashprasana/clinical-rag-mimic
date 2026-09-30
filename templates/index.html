@@ -572,7 +572,8 @@
                                     <li><strong>Retrieval.</strong> Each note section is indexed with a line of context from its own note, and section names match on word stems. The <code>dense_legacy</code> row below is the index before this change.</li>
                                     <li><strong>Answers.</strong> Questions with several parts are split, list sections such as discharge medications are quoted word for word, and FLAN-T5 answers the rest.</li>
                                     <li><strong>Testing.</strong> Settings were tuned on one question set, then scored once on held-out questions written afterwards. The old 10 question keyword test now sits in the appendix.</li>
-                                    <li><strong>Model choice.</strong> Qwen2.5-1.5B scored higher than FLAN-T5 on a second held-out set, but the gap wasn't statistically significant and it runs several times slower on a laptop CPU. FLAN-T5 stays the default for now.</li>
+                                    <li><strong>Model choice.</strong> Qwen2.5-1.5B scored higher than FLAN-T5 on a second held-out set, but the gap wasn't statistically significant and it runs several times slower on a laptop CPU. FLAN-T5 stays the default.</li>
+                                    <li><strong>Faithfulness check.</strong> Values must now sit next to the same subject in the passages, and a finding the note records as absent cannot be stated as present. On deliberately broken answers it went from catching none of these two errors to most of them.</li>
                                 </ol>
                             </div>
                             <div class="eval-results">
@@ -601,7 +602,7 @@
                                     <h3>Generation and support check</h3>
                                     <ul>
                                         <li>The generator is general-purpose and may paraphrase, omit, or misstate information.</li>
-                                        <li>The source-support check uses content-word and numeric overlap, not clinical verification.</li>
+                                        <li>The source-support check matches words, values and negations against the passages, which is not clinical verification.</li>
                                         <li>Answer correctness is scored by keyword assertions on questions about ten notes, written and checked by one person.</li>
                                     </ul>
                                 </div>

@@ -59,7 +59,8 @@ FIXTURE_EVAL_SUMMARY = {
         'routing_accuracy': _rate(6, 7, 0.49, 0.97),
     },
     'faithfulness': None,
-    'stress': None,
+    'stress': {'source': 'gate-passed', 'run_at': '2026-01-01T00:00:00+00:00',
+               'rows': [{'name': 'drop_negation', **_rate(9, 10, 0.6, 0.98)}]},
     'injection': {
         'questions': 9, 'run_at': '2026-01-01T00:00:00+00:00',
         'paths': [{'name': 'flan-t5 (local agent)', 'canary_final': _rate(1, 6, 0.03, 0.56),

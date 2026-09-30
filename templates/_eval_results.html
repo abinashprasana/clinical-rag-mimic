@@ -94,23 +94,27 @@
 </div>
 {% set g = summary.generation if summary else none %}
 {% set f = summary.faithfulness if summary else none %}
-<p class="eval-table-title">Answers and the faithfulness check, {{ label }}</p>
-<div class="eval-table-wrap" tabindex="0" role="region" aria-label="Answer and faithfulness check results, {{ label }}">
+{% set answers_title = 'Answers and the faithfulness check, ' ~ label if f else 'Answers, ' ~ label %}
+<p class="eval-table-title">{{ answers_title }}</p>
+<div class="eval-table-wrap" tabindex="0" role="region" aria-label="{{ answers_title }}">
     <table class="eval-table">
-        <caption class="sr-only">Answers and the faithfulness check, {{ label }}</caption>
+        <caption class="sr-only">{{ answers_title }}</caption>
         <thead>
             <tr><th scope="col">Measure</th><th scope="col">Result</th><th scope="col">95% interval</th></tr>
         </thead>
         <tbody>
-            {% for name, row, waiting in [
+            {#- The human label rows appear only once labels exist. -#}
+            {% set rows = [
                 ('Answer correctness', g.answer_correctness if g else none, 'question review'),
                 ('Refusal on unanswerable questions', g.refusal_accuracy if g else none, 'question review'),
                 ('Routing to clarify or FDA lookup', g.routing_accuracy if g else none, 'question review'),
-                ('Agreement with human labels', f.agreement if f else none, 'human labels'),
-                ('Unsupported answers the check passed', f.false_pass if f else none, 'human labels'),
-                ('Supported answers the check refused', f.false_refusal if f else none, 'human labels'),
-                ('Labeller agreement with a second pass', f.self_agreement if f else none, 'a second labelling pass'),
-            ] %}
+            ] + ([
+                ('Agreement with human labels', f.agreement, 'human labels'),
+                ('Unsupported answers the check passed', f.false_pass, 'human labels'),
+                ('Supported answers the check refused', f.false_refusal, 'human labels'),
+                ('Labeller agreement with a second pass', f.self_agreement, 'a second labelling pass'),
+            ] if f else []) %}
+            {% for name, row, waiting in rows %}
             <tr>
                 <th scope="row">{{ name }}</th>
                 {% if row %}
@@ -126,6 +130,38 @@
 </div>
 {% if f and f.kappa is not none %}
 <p class="eval-note">Cohen's kappa between the check and the human labels: {{ dec(f.kappa) }}. A label of partially supported counts as not supported.</p>
+{% endif %}
+{{ stress_table(summary.stress if summary else none) }}
+{%- endmacro %}
+
+{#- Synthetic stress test: answers the check passed, broken on purpose. -#}
+{% macro stress_table(stress) -%}
+{% if stress and stress.rows %}
+{% set names = {
+    'number_swap_absent': 'A number changed to one not in the passages',
+    'number_swap_in_context': 'A number changed to another value from the passages',
+    'insert_fact': 'An invented clinical sentence added',
+    'drop_negation': '"no" or "denies" removed, reversing a finding',
+} %}
+<p class="eval-table-title">Faithfulness check on deliberately broken answers</p>
+<div class="eval-table-wrap" tabindex="0" role="region" aria-label="Faithfulness check on deliberately broken answers">
+    <table class="eval-table">
+        <caption class="sr-only">Faithfulness check on deliberately broken answers</caption>
+        <thead>
+            <tr><th scope="col">Deliberate error</th><th scope="col">Caught by the check</th><th scope="col">95% interval</th></tr>
+        </thead>
+        <tbody>
+            {% for r in stress.rows %}
+            <tr>
+                <th scope="row">{{ names.get(r.name, r.name) }}</th>
+                <td>{{ pct(r.rate) }} <small>{{ r.k }} of {{ r.n }}</small></td>
+                <td>{{ pct(r.low) }} to {{ pct(r.high) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="eval-note">Answers the check had passed{% if stress.source == 'gate-passed' %}, from the 100 tuning questions,{% endif %} were broken on purpose, so every broken answer is wrong by construction. The rows show what the check can catch, not how often such errors happen.</p>
 {% endif %}
 {%- endmacro %}
 

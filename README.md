@@ -103,7 +103,7 @@ FLAN-T5-base reads about 480 tokens, so it rarely sees all five passages. I trie
 | Qwen2.5-1.5B-Instruct, generative | 49 of 70 (70%) | 14 of 16 (88%) | 12.2 |
 | Qwen3-1.7B, generative | 42 of 70 (60%) | 14 of 16 (88%) | 37.8 |
 
-On these tuning questions neither larger model beat the default, and both were two to six times slower. Their misses were real errors, such as giving the baseline hemoglobin as the admission value or the admission oxygen saturation as the discharge value, plus some answers the faithfulness check blocked because the model paraphrased. I kept FLAN-T5-base as the default and decided that before scoring the second holdout. On the second holdout the result went the other way. Scored once each on the same 29 answerable questions, Qwen2.5-1.5B-Instruct with hybrid answering was right on 22 (76%, 58% to 88%) against 16 for the default, and refused 5 of 6 unanswerable questions against 6 of 6. Question by question, 14 were right for both, 8 only for Qwen, 2 only for FLAN-T5 and 5 for neither; the paired difference is 0.21 (0.00 to 0.41) and an exact McNemar test gives p = 0.11, so the fresh questions lean towards Qwen without settling it. The tuning comparison probably favours FLAN-T5 because the hybrid rules were tuned with it. Switching the default because of a holdout score would be tuning on the holdout, so the default stays as decided, and the question stays open until a new question set or the real notes decide it. Qwen also took 3 to 11 times longer per question on this laptop (19.5 against 6.2 seconds on the tuning questions, 99.8 against 8.8 on the second holdout). `LOCAL_GENERATOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct` switches to it.
+On these tuning questions neither larger model beat the default, and both were two to six times slower. Their misses were real errors, such as giving the baseline hemoglobin as the admission value or the admission oxygen saturation as the discharge value, plus some answers the faithfulness check blocked because the model paraphrased. I kept FLAN-T5-base as the default and decided that before scoring the second holdout. On the second holdout the result went the other way. Scored once each on the same 29 answerable questions, Qwen2.5-1.5B-Instruct with hybrid answering was right on 22 (76%, 58% to 88%) against 16 for the default, and refused 5 of 6 unanswerable questions against 6 of 6. Question by question, 14 were right for both, 8 only for Qwen, 2 only for FLAN-T5 and 5 for neither; the paired difference is 0.21 (0.00 to 0.41) and an exact McNemar test gives p = 0.11, so the fresh questions lean towards Qwen without settling it. The tuning comparison probably favours FLAN-T5 because the hybrid rules were tuned with it. Switching the default because of a holdout score would be tuning on the holdout, so the default stays as decided. Qwen also took 3 to 11 times longer per question on this laptop (19.5 against 6.2 seconds on the tuning questions, 99.8 against 8.8 on the second holdout). `LOCAL_GENERATOR_MODEL=Qwen/Qwen2.5-1.5B-Instruct` switches to it.
 
 ### What changed
 
@@ -133,13 +133,7 @@ Retrieval, the switch to hybrid answering and the refusal rule were each tried a
 
 On the holdout, the local agent answered 1 of 5 negation questions correctly ("Did the patient still have a fever at discharge?"), and the answerability check still refuses some of them. Two part questions were right 3 times out of 5. The live Gemini app mixes up patients on some questions, because the public runtime keeps its own Gemini embedding retrieval and did not get the contextual index; it also loses some points to the keyword assertions, which do not accept a correct paraphrase such as "insulin glargine at a dose of 20 units".
 
-### Faithfulness check versus human labels
-
-`python -m evals.label_tool --corpus demo` shows the question, the retrieved passages and the first draft, and records my label: supported, partially supported or unsupported. It never shows the check's own decision. `python -m evals.faithfulness_agreement --corpus demo` then reports agreement, Cohen's kappa, the false pass rate and the false refusal rate, next to my own agreement with myself on a relabelled 20.
-
-TODO: these numbers need my labels, which I have not done yet.
-
-### Stress test and the fixes to the check
+### Faithfulness check
 
 Reading the code showed three gaps in the check: it dropped "no" and "not" as stopwords, compared numbers against every retrieved passage at once, and skipped a sentence with no content words, such as a lone "31.". A synthetic stress set (`evals/stress.py`) measures them without any labels. It takes answers the check passed and breaks them on purpose, in the style of FactCC (Kryściński et al., EMNLP 2020), so every broken answer is unsupported by construction. The source answers are the drafts from the 100 tuning questions (`python -m evals.faithfulness_agreement --corpus demo --stress-source gate-passed`).
 
@@ -162,7 +156,9 @@ The 10 in-note swaps it still misses are mostly answers that are only a value ("
 
 A stricter check can refuse correct answers, so the new one was replayed on every saved answer, 544 saved local answers from FLAN-T5, Qwen2.5 and Qwen3 across the tuning questions and both holdouts. It blocks none that the old check passed. The first holdout was rerun end to end with it and scores the same (20 of 29, refusal 5 of 6). The public site runs this same check on its Gemini answers (`demo/runtime.py` calls `local_reflect`), so 34 fresh Gemini answers to the first holdout were judged by both versions. The new check changed one decision: it blocked an answer that paired the right sodium value with a second one taken from a different patient's note, which the keyword scorer had counted as correct. On the public site a blocked answer is retried once and then replaced by a direct quote of the passages.
 
-Two cautions. While fixing false blocks I looked at answers from both holdouts, so the check's own design is no longer independent of them; the stress numbers above come from the tuning questions only. And these rows are synthetic, so they show what the check can catch, not how often such errors occur. The human label numbers above stay pending.
+Two cautions. While fixing false blocks I looked at answers from both holdouts, so the check's own design is no longer independent of them; the stress numbers above come from the tuning questions only. And these rows are synthetic, so they show what the check can catch, not how often such errors occur.
+
+Comparing the check with a person's judgement is a separate measurement. `python -m evals.label_tool --corpus demo` shows each question, its passages and the first draft, without the check's decision, and records a label of supported, partially supported or unsupported. `python -m evals.faithfulness_agreement --corpus demo` turns those labels into agreement, Cohen's kappa, false pass and false refusal rates, and self agreement on a relabelled 20. No labels have been recorded, so those numbers are not reported here or in the app.
 
 ### Regression gate
 
@@ -198,12 +194,13 @@ The faithfulness check passed every answer that carried the canary. It compares 
 | Original smoke test (10 questions, keyword match) | 70% (7/10); 60% (6/10) after the index change | 80% (8/10) |
 | Mean latency | ~3.4s per question | ~4.6s per question |
 
-These runs call retrieval and generation directly, so routing, the faithfulness check and the refusal never took part in them. The real dataset figure was 7 of 10 before the contextual index and 6 of 10 after it, rerun on 27 September 2026. One question is the whole difference, which is the noise this evaluation was built to get past, and none of these ten questions names a patient, so they do not test what the contextual index is for. Whether the change helps on real notes needs the real golden set. No note text, answer or passage from the real runs is in this repository.
+These runs call retrieval and generation directly, so routing, the faithfulness check and the refusal never took part in them. The real dataset figure was 7 of 10 before the contextual index and 6 of 10 after it, rerun on 27 September 2026. One question is the whole difference, which is the noise this evaluation was built to get past, and none of these ten questions names a patient, so they do not test what the contextual index is for. No note text, answer or passage from the real runs is in this repository.
 
 ### Limitations
 
 - The demo corpus is 10 fabricated notes and 101 chunks, and the holdout has 40 questions, so every interval is wide.
-- One person (me) wrote the questions and approved them in bulk, and will label the answers.
+- One person (me) wrote the questions and approved them in bulk.
+- The faithfulness check is measured on deliberately broken answers only. It has not been compared with human labels.
 - Answer correctness still rests on keyword assertions, which reject some correct paraphrases.
 - The real notes come from one institution, Beth Israel Deaconess Medical Center. Real dataset numbers are aggregates only, and reproducing them needs credentialed PhysioNet access.
 - Routing is scored with the local keyword rules, since evaluation runs keep Gemini off.
@@ -426,7 +423,7 @@ python app.py
 
 Then open `http://localhost:5000` in your browser.
 
-## 🧪 Limitations and Future Work
+## 🧪 Limitations of the approach
 
 The embedding model and generative model are both general-purpose and were not trained on clinical or biomedical text. It's tempting to assume a domain-specific model like Bio_ClinicalBERT would improve retrieval, but a 2024 benchmark of clinical semantic search ([Kanithi et al., arXiv:2401.01943](https://arxiv.org/html/2401.01943v2)) found the opposite for short-context retrieval: generalist sentence-transformer models beat clinical-specific ones (their top generalist model hit 84.0% exact-match vs. 64.4% for the best clinical model, ClinicalBERT), so `all-MiniLM-L6-v2` is a reasonable choice here, not a placeholder to be swapped out. A domain-specific generation model (e.g. BioGPT) is more likely to help than a domain-specific embedding model would. The local corpus size is configurable, but restricted-data-derived corpus measurements and artifacts are deliberately kept out of the public repository. Because retrieval returns the single most relevant note, definitional questions ("What is hypertension?") tend to surface that patient's specific diagnosis rather than a general definition. That's correct grounded behaviour for this design, but worth knowing if you extend the evaluation set. The keyword-based evaluation is rigid and may penalise correct answers that use different but valid medical vocabulary. The pipeline is built on a single institution dataset from MIMIC-IV and may not generalise well to discharge notes from other hospitals or healthcare systems.
 

@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "corpus": "demo",
+    "reviewed_only": true,
+    "n_questions": 100,
+    "run_at": "2026-09-30T19:17:51+00:00",
+    "git_commit": "90d2275"
+  },
+  "agreement": {
+    "n": 0,
+    "stale_labels": 0
+  },
+  "self_agreement": {
+    "n": 0
+  },
+  "stress": {
+    "source": "drafts the check passed (no human labels used)",
+    "counts": {
+      "number_swap_absent": {
+        "n": 45,
+        "detected": 45
+      },
+      "number_swap_in_context": {
+        "n": 45,
+        "detected": 35
+      },
+      "insert_fact": {
+        "n": 88,
+        "detected": 71
+      },
+      "drop_negation": {
+        "n": 18,
+        "detected": 18
+      }
+    }
+  }
+}

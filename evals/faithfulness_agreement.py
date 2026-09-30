@@ -2,7 +2,7 @@
 labeller's agreement with themself, plus the synthetic stress set.
 
     python -m evals.faithfulness_agreement --corpus demo
-    python -m evals.faithfulness_agreement --corpus demo --stress-source gate-passed   # before labels exist
+    python -m evals.faithfulness_agreement --corpus demo --stress-source gate-passed   # no labels needed
 
 Binary mapping: a human label of "supported" counts as supported; "partially
 supported" and "unsupported" both count as not supported.
@@ -108,8 +108,8 @@ def render(result, fmt_name):
             ['not supported', c['not_supported']['supported'], c['not_supported']['not_supported']],
         ]))
     else:
-        parts.append('No human labels match the current generation records yet. '
-                     'Label with python -m evals.label_tool.')
+        parts.append('No human labels match these generation records, so agreement with human '
+                     'labels is not reported (python -m evals.label_tool records them).')
     if a.get('stale_labels'):
         parts.append(f"{a['stale_labels']} labels refer to drafts that changed since labelling and were skipped.")
     st = result['stress']
@@ -125,7 +125,7 @@ def main(argv=None):
     parser.add_argument('--corpus', choices=['demo', 'real'], default='demo')
     parser.add_argument('--include-unreviewed', action='store_true')
     parser.add_argument('--stress-source', choices=['human-supported', 'gate-passed'], default='human-supported',
-                        help='gate-passed uses drafts the gate passed, for development before labels exist')
+                        help='gate-passed breaks drafts the check passed, so it needs no human labels')
     args = parser.parse_args(argv)
     common.guard_real_data(args.corpus)
 
@@ -140,7 +140,7 @@ def main(argv=None):
     corpus = load_corpus(args.corpus)
 
     source_note = {'human-supported': 'answers labelled supported by the human labeller',
-                   'gate-passed': 'drafts the gate passed (no human labels used; development only)'}
+                   'gate-passed': 'drafts the check passed (no human labels used)'}
     result = {
         'meta': common.run_metadata(args.corpus, args.include_unreviewed, len(records)),
         'agreement': agreement(records, labels),
@@ -148,14 +148,15 @@ def main(argv=None):
         'stress': {'source': source_note[args.stress_source],
                    'counts': run_stress(stress_items(records, labels, corpus, args.stress_source))},
     }
-    agg_dir, _ = common.output_dirs(args.corpus, args.include_unreviewed or args.stress_source == 'gate-passed')
-    stem = f'faithfulness_{args.corpus}' + (
-        '.unreviewed' if args.include_unreviewed or args.stress_source == 'gate-passed' else '')
+    # A gate-passed stress run uses reviewed questions and no labels; it is
+    # reported as synthetic, with its source recorded in the result.
+    agg_dir, _ = common.output_dirs(args.corpus, args.include_unreviewed)
+    stem = f'faithfulness_{args.corpus}' + ('.unreviewed' if args.include_unreviewed else '')
     common.write_json(os.path.join(agg_dir, stem + '.json'), result)
     with open(os.path.join(agg_dir, stem + '.md'), 'w', encoding='utf-8', newline='\n') as f:
         f.write(render(result, 'md') + '\n')
     print(render(result, 'text'))
-    common.refresh_summary(args.corpus, args.include_unreviewed or args.stress_source == 'gate-passed')
+    common.refresh_summary(args.corpus, args.include_unreviewed)
     print(f'\nWrote {agg_dir}/{stem}.json and .md.')
     return 0
 

@@ -1121,7 +1121,9 @@ for (const width of [320, 1280]) {
     await gotoApp(page);
     await page.getByRole("tab", { name: "System Overview" }).click();
     const block = page.locator("#overview-panel .eval-results");
-    await expect(block.locator("table")).toHaveCount(3);
+    await expect(block.locator("table")).toHaveCount(4);
+    await expect(block).toContainText("Faithfulness check on deliberately broken answers");
+    await expect(block).not.toContainText("Waiting for");
     await expect(block.locator("caption").first()).toHaveText("Retrieval, fabricated demo notes, 30 questions");
     await expect(block.locator("tbody th", { hasText: "dense (default)" })).toHaveCount(1);
     await expect(block).toContainText("Poisoned note test");
