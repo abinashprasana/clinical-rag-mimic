@@ -111,8 +111,10 @@ def build_summary(results_dir, corpus):
             'run_at': public['meta']['run_at'], 'attempted': public['attempted'],
             'answered_by_gemini': public['answered_by_gemini'],
             'recall@5': _interval(public['recall@5']) if public.get('recall@5') else None,
+            'mrr': _interval(public['mrr']) if public.get('mrr') else None,
             'answer_correctness': _rate(public.get('answer_correctness')),
             'refusal_accuracy': _rate(public.get('refusal_accuracy')),
+            'routing_accuracy': _rate(public.get('routing_accuracy')),
         }
 
     if injection:

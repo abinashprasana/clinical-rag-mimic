@@ -68,13 +68,15 @@ The 180 questions come in three groups. The first 100 (`evals/golden/demo_questi
 
 | Measure | Before the changes | After, local agent | After, live public app (Gemini) |
 |---|---|---|---|
-| Retrieval recall@5 | 0.701 (0.540 to 0.851) | 0.908 (0.810 to 0.983) | 0.923 (0.845 to 0.982) |
-| Retrieval MRR | 0.428 (0.286 to 0.561) | 0.865 (0.761 to 0.948) | not measured |
-| Answer correctness | 34%, 10 of 29 (20% to 53%) | 69%, 20 of 29 (51% to 83%) | 61%, 17 of 28 (42% to 76%) |
+| Retrieval recall@5 | 0.701 (0.540 to 0.851) | 0.908 (0.810 to 0.983) | 0.891 (0.787 to 0.966) |
+| Retrieval MRR | 0.428 (0.286 to 0.561) | 0.865 (0.761 to 0.948) | 0.645 (0.533 to 0.763) |
+| Answer correctness | 34%, 10 of 29 (20% to 53%) | 69%, 20 of 29 (51% to 83%) | 52%, 15 of 29 (34% to 69%) |
 | Refusal when the notes lack the answer | 17%, 1 of 6 (3% to 56%) | 83%, 5 of 6 (44% to 97%) | 100%, 6 of 6 (61% to 100%) |
-| Routing to clarify or the FDA label | 100%, 5 of 5 | 100%, 5 of 5 (57% to 100%) | not scored |
+| Routing to clarify or the FDA label | 100%, 5 of 5 (57% to 100%) | 100%, 5 of 5 (57% to 100%) | 40%, 2 of 5 (12% to 77%) |
 
 Intervals are 95%: bootstrap over questions for retrieval, Wilson for rates. The paired difference in recall@5 between the new and the previous retrieval on the holdout is 0.207 (0.034 to 0.414), so the retrieval gain is real on questions that were never used for tuning. The "before" column is the code as it was before these changes (commit ad0262a), run on the same 40 questions. On them, answer correctness went from 34% to 69% and refusal from 1 in 6 to 5 in 6. 69% is short of the 80% I aimed for, and the intervals are wide because the holdout is small.
+
+The public app column comes from one run through Gemini on 30 September 2026, after the faithfulness check changes, with every question counted. The public runtime has no FDA label tool and no clarify step of its own. Its routing score counts a drug label question as handled when it is not answered from a patient's note (it shows a notice that it gives no dosing advice), and a one word question when it asks to clarify: it declined both dosage questions, but answered the contraindications question and both one word questions from the notes. The same notice also caught one ordinary question that contains the word "dose", which counts as a wrong answer. An earlier run on 27 September scored 17 of 28 (61%) and left that question out as a fallback; counting it, and with Gemini's answers varying from run to run, 15 of 29 is the current figure. The two intervals overlap almost entirely.
 
 On the 100 original questions, which were used to choose the changes and therefore overstate them, the local agent now scores 61 of 70 on answer correctness (87%, 77% to 93%) and 14 of 16 on refusal (88%), against 36 of 70 (51%) and 4 of 16 (25%) before. The holdout above is the fairer measure.
 

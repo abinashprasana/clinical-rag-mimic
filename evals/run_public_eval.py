@@ -5,8 +5,12 @@ only; this module reads demo/runtime.py and never changes it.
     python -m evals.run_public_eval
     python -m evals.run_public_eval --pause 6 --max-fallbacks 3
 
-Scores the reviewed answer and unanswerable questions: recall@5 over the
-passages the runtime cites, answer correctness and refusal accuracy. The
+Scores the reviewed questions: recall@5 and MRR over the passages the
+runtime cites, answer correctness, refusal accuracy, and routing. The public
+runtime has no FDA label tool and no clarify step of its own, so routing is
+scored on what it does instead: a drug label question counts as handled when
+it is not answered from a patient's note (the runtime's dosing notice or an
+FDA route), and a one or two word question when the reply asks to clarify. The
 runtime quietly falls back to an offline keyword method when a Gemini call
 fails (for example when the free quota runs out), so every answer records
 which path produced it. Only Gemini answers are scored; the run stops after
@@ -39,6 +43,12 @@ def is_refusal(answer):
     return 'cannot find this information' in lowered or 'could not confirm' in lowered
 
 
+def routed_correctly(behavior, result):
+    if behavior == 'fda_lookup':
+        return result.get('route') in ('dosage', 'direct') and not result.get('citations')
+    return bool(result.get('needs_clarification')) or result.get('route') == 'clarify'
+
+
 def run(questions, corpus, runner, pause, max_fallbacks, sleep=time.sleep):
     records, fallbacks_in_row = [], 0
     for q in questions:
@@ -47,15 +57,21 @@ def run(questions, corpus, runner, pause, max_fallbacks, sleep=time.sleep):
         answer = result.get('final_answer') or ''
         keys = [corpus.keys[c['chunk_idx']] for c in result.get('citations', [])]
         record = {'id': q['id'], 'category': q['category'], 'behavior': q['expected_behavior'],
-                  'gemini': gemini}
+                  'gemini': gemini, 'route': result.get('route')}
         if q['expected_behavior'] == 'answer':
             gold = {(str(r['note_id']), r['section']) for r in q['relevant']}
-            record['recall@5'] = query_metrics(keys, gold)['recall@5']
+            metrics = query_metrics(keys, gold)
+            record['recall@5'], record['mrr'] = metrics['recall@5'], metrics['mrr']
             record['correct'] = score_answer(q, answer) and not is_refusal(answer)
-        else:
+        elif q['expected_behavior'] == 'refuse':
             record['correct'] = is_refusal(answer)
+        else:
+            record['correct'] = routed_correctly(q['expected_behavior'], result)
         records.append(record)
-        fallbacks_in_row = 0 if gemini else fallbacks_in_row + 1
+        if q['expected_behavior'] in ('fda_lookup', 'clarify'):
+            sleep(pause)
+            continue  # routing replies need not come from Gemini
+        fallbacks_in_row = 0 if gemini or result.get('route') == 'direct' else fallbacks_in_row + 1
         if fallbacks_in_row >= max_fallbacks:
             break
         sleep(pause)
@@ -63,7 +79,10 @@ def run(questions, corpus, runner, pause, max_fallbacks, sleep=time.sleep):
 
 
 def summarise(records):
-    scored = [r for r in records if r['gemini']]
+    routing = [r for r in records if r['behavior'] in ('fda_lookup', 'clarify')]
+    # The dosing notice (route "direct") is the runtime's own answer, not a
+    # quota fallback, so it is scored like a Gemini answer.
+    scored = [r for r in records if (r['gemini'] or r.get('route') == 'direct') and r not in routing]
     answer = [r for r in scored if r['behavior'] == 'answer']
     refuse = [r for r in scored if r['behavior'] == 'refuse']
 
@@ -72,14 +91,22 @@ def summarise(records):
         p, low, high = wilson_ci(k, n)
         return {'k': k, 'n': n, 'rate': p, 'low': low, 'high': high} if n else None
 
-    mean, low, high = bootstrap_ci([r['recall@5'] for r in answer])
+    def interval(metric):
+        if not answer:
+            return None
+        mean, low, high = bootstrap_ci([r[metric] for r in answer])
+        return {'mean': mean, 'low': low, 'high': high}
+
     return {
         'attempted': len(records),
-        'answered_by_gemini': len(scored),
-        'fallback_answers_excluded': len(records) - len(scored),
-        'recall@5': {'mean': mean, 'low': low, 'high': high} if answer else None,
+        'answered_by_gemini': sum(r['gemini'] for r in scored),
+        'scored': len(scored),
+        'fallback_answers_excluded': len(records) - len(routing) - len(scored),
+        'recall@5': interval('recall@5'),
+        'mrr': interval('mrr'),
         'answer_correctness': rate(answer),
         'refusal_accuracy': rate(refuse),
+        'routing_accuracy': rate(routing),
     }
 
 
@@ -97,7 +124,7 @@ def main(argv=None):
         return 2
     from demo import runtime
     questions = [q for q in select(load_questions(args.file or GOLDEN_FILES['demo']), split=args.split)
-                 if q['expected_behavior'] in ('answer', 'refuse')]
+]
     records = run(questions, load_corpus('demo'), runtime.run_turn, args.pause, args.max_fallbacks)
     summary = summarise(records)
     result = {'meta': common.run_metadata('demo', False, len(questions)),
@@ -114,8 +141,11 @@ def main(argv=None):
           'answers excluded.')
     print(common.text_table(['measure', 'result'], [
         ['recall@5 (cited passages)', 'n/a' if not r5 else common.fmt_ci(r5['mean'], r5['low'], r5['high'])],
+        ['MRR (cited passages)', 'n/a' if not summary['mrr'] else common.fmt_ci(
+            summary['mrr']['mean'], summary['mrr']['low'], summary['mrr']['high'])],
         ['answer correctness', pct(summary['answer_correctness'])],
         ['refusal accuracy', pct(summary['refusal_accuracy'])],
+        ['routing (drug label or clarify)', pct(summary['routing_accuracy'])],
     ]))
     if len(records) < len(questions):
         print(f'Stopped after {len(records)} of {len(questions)} questions: '

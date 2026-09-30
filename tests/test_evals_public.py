@@ -45,3 +45,32 @@ def test_refusal_detection_covers_both_phrasings():
     assert is_refusal('I cannot find this information in the provided notes.')
     assert is_refusal('I could not confirm this answer is fully supported by the retrieved notes')
     assert not is_refusal('Furosemide 60 mg daily.')
+
+
+def test_routing_is_scored_on_what_the_public_runtime_does():
+    fda_q = {'id': 'q003', 'category': 'fda_dosage', 'expected_behavior': 'fda_lookup',
+             'question': 'What is the usual dose of pantoprazole?'}
+    vague_q = {'id': 'q004', 'category': 'ambiguous', 'expected_behavior': 'clarify', 'question': 'Labs'}
+
+    def runner(question):
+        if question.startswith('What is the usual dose'):
+            return {'final_answer': 'This public demo does not provide dosing advice.', 'route': 'direct',
+                    'tool_used': 'Public-demo safety boundary', 'citations': []}
+        return {'final_answer': 'Furosemide 60 mg daily.', 'route': 'retrieve', 'tool_used': GEMINI,
+                'citations': [{'chunk_idx': MEDS}]}
+
+    records = run([fda_q, vague_q, ANSWER_Q], CORPUS, runner, pause=0, max_fallbacks=1, sleep=lambda _: None)
+    assert len(records) == 3          # the dosing notice is not counted as a Gemini fallback
+    summary = summarise(records)
+    assert summary['routing_accuracy']['k'] == 1 and summary['routing_accuracy']['n'] == 2
+    assert summary['mrr']['mean'] == 1.0 and summary['fallback_answers_excluded'] == 0
+
+
+def test_dosing_notice_on_a_patient_question_counts_as_a_miss():
+    def runner(question):
+        return {'final_answer': 'This public demo does not provide dosing advice.', 'route': 'direct',
+                'tool_used': 'Public-demo safety boundary', 'citations': []}
+
+    summary = summarise(run([ANSWER_Q], CORPUS, runner, pause=0, max_fallbacks=1, sleep=lambda _: None))
+    assert summary['answer_correctness']['k'] == 0 and summary['answer_correctness']['n'] == 1
+    assert summary['fallback_answers_excluded'] == 0
