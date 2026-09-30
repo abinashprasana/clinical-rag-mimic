@@ -139,7 +139,18 @@ On the holdout, the local agent answered 1 of 5 negation questions correctly ("D
 
 TODO: these numbers need my labels, which I have not done yet.
 
-From the code, three gaps in the check are already clear: it ignores "no" and "not" as stopwords, compares numbers against every retrieved passage at once, and skips a sentence with no content words, such as a lone "31.". A synthetic stress set (`evals/stress.py`) measures each of these once the labels exist.
+From the code, three gaps in the check are already clear: it ignores "no" and "not" as stopwords, compares numbers against every retrieved passage at once, and skips a sentence with no content words, such as a lone "31.".
+
+A synthetic stress set (`evals/stress.py`) measures the first two without any labels. It takes answers the check passed and breaks them on purpose, in the style of FactCC (Kryściński et al., EMNLP 2020), so every broken answer is unsupported by construction. Run on 30 September 2026 over the drafts from the 100 tuning questions, with `python -m evals.faithfulness_agreement --corpus demo --stress-source gate-passed`:
+
+| Corruption | Caught by the check |
+|---|---|
+| A number swapped for one found nowhere in the passages | 27 of 45, 60% (45% to 73%) |
+| A number swapped for another number that is in the passages | 0 of 45, 0% (0% to 8%) |
+| An invented clinical sentence added | 71 of 88, 81% (71% to 88%) |
+| "no", "not" or "denies" removed, reversing the finding | 0 of 18, 0% (0% to 18%) |
+
+The two zeros confirm the gaps above: an answer that flips "no fever" to "fever", or swaps a dose for another number from the same note, passes the check every time. These rows are synthetic, so they say nothing about how often such errors happen in real answers. The human label numbers above stay pending.
 
 ### Regression gate
 
